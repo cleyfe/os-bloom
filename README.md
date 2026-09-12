@@ -15,7 +15,7 @@ live upstreams, awkward data, and decisions that have to be defended.
 
 [![License](https://img.shields.io/badge/license-MIT-f5a623?style=flat-square)](LICENSE)
 ![Python](https://img.shields.io/badge/python-3.12+-5f9ea0?style=flat-square)
-![Tests](https://img.shields.io/badge/tests-188%20passing-4c9a2a?style=flat-square)
+![Tests](https://img.shields.io/badge/tests-212%20passing-4c9a2a?style=flat-square)
 ![Paid data sources](https://img.shields.io/badge/paid%20data%20sources-0-f5a623?style=flat-square)
 ![Built AI-first](https://img.shields.io/badge/built-AI--first-8a63d2?style=flat-square)
 
@@ -36,7 +36,7 @@ Press `1`–`7`, or use `#/mkt`-style URL fragments.
 
 | Tab | Contents |
 | --- | --- |
-| **MKT** | Macro release calendar (past 7 days + upcoming), 10 world equity indexes, a bond matrix (10Y / 3M / central bank rate, for the US and Germany), and top headlines. Every row opens a click-through chart. |
+| **MKT** | Macro release calendar (this week's prints and what is still to come, actuals from FRED and Eurostat within the hour), 10 world equity indexes, a bond matrix (10Y / 3M / central bank rate, for the US and Germany), and top headlines. Every row opens a click-through chart. |
 | **DEFI** | Zyfai decentralized-finance USDC yield tiers, Morpho Midnight fixed-term structure with a hover-readout curve, Morpho markets, and a RATE REFS panel (Aave, Pendle implied APY, BTC perp funding) with history charts. |
 | **RISK** | Volatility and hedging (VIX, VXN, put/call), sentiment and rotation (AAII spread, cyclicals/defensives, small/large, gold/silver). |
 | **ECON** | ISM PMIs, OECD leading indicators, jobless claims, JOLTS, heavy truck sales, UMich sentiment, M2, breakevens, real rates, dollar index. |
@@ -100,7 +100,7 @@ keyless.
 
 | Source | Provides | Key |
 | --- | --- | :---: |
-| [FRED](https://fred.stlouisfed.org/) | US/EZ macro series, Treasury yields, credit spreads, NFCI, recession bands | free key |
+| [FRED](https://fred.stlouisfed.org/) | US/EZ macro series, Treasury yields, credit spreads, NFCI, recession bands and US release prints | free key |
 | [DBnomics](https://db.nomics.world/) | ISM manufacturing + services PMI | — |
 | [OECD SDMX](https://sdmx.oecd.org/) | Composite leading indicators (US, G4E) | — |
 | [CFTC](https://publicreporting.cftc.gov/) | Commitments of Traders positioning | — |
@@ -109,7 +109,8 @@ keyless.
 | [Yahoo Finance](https://finance.yahoo.com/) | Equity index closes and ratio series | — |
 | [ECB Data Portal](https://data.ecb.europa.eu/) | Euro-area AAA yield curve (3M) | — |
 | [Bundesbank](https://www.bundesbank.de/) | German 10Y benchmark | — |
-| ForexFactory mirror | Macro release calendar | — |
+| ForexFactory mirror | Macro release calendar (times, consensus, previous) | — |
+| [Eurostat](https://ec.europa.eu/eurostat) | Euro-area HICP, unemployment and GDP prints | — |
 | FT, CNBC, MarketWatch, ECB, Fed | Headlines, via public RSS | — |
 | [Morpho](https://morpho.org/) | Morpho Blue markets, Midnight fixed-term book | — |
 | [Pendle](https://www.pendle.finance/) | Implied APY and expiry | — |

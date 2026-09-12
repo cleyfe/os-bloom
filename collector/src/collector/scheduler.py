@@ -15,6 +15,7 @@ from functools import partial
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 
 from collector.config import Config
+from collector.fetchers.actuals import fetch_actuals
 from collector.fetchers.bonds import fetch_bonds
 from collector.fetchers.cycle import fetch_cycle
 from collector.fetchers.equity import fetch_equity
@@ -50,6 +51,8 @@ def register_jobs(
                           fred_api_key=fred_api_key)),
         "macro": (cfg.cadences["macro"],
                   partial(fetch_calendar_if_due, cfg.calendar_url, cfg.calendar_map, store, get_text)),
+        "actuals": (cfg.cadences["actuals"],
+                    partial(fetch_actuals, cfg.actuals, store, get_text, fred_api_key)),
         "news": (cfg.cadences["news"],
                  partial(fetch_news, cfg.feeds, store, get_text, max_items=cfg.max_news)),
         "macro_history": (MACRO_HISTORY_SECONDS,

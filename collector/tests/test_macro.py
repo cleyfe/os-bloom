@@ -179,3 +179,20 @@ async def test_refresh_clock_survives_hourly_success_stamps(tmp_path):
     assert calls["n"] == 1
     await tick(base + timedelta(hours=6, minutes=5))   # past 6h baseline: refetch
     assert calls["n"] == 2
+
+
+async def test_refetch_keeps_actuals_written_by_the_actuals_job(tmp_path):
+    """FF never carries an actual, so its rows arrive with actual=None on every
+    refetch; the merge must not erase what the actuals job filled in."""
+    store = Store(tmp_path / "t.db")
+    now = datetime(2026, 7, 9, 12, 0, tzinfo=timezone.utc)
+    await fetch_calendar("http://x", CAL_MAP, store, fake_get, now=now)
+    hist = store.doc("macro_history").payload["releases"]
+    core = next(r for r in hist if r["name"] == "Core CPI m/m")
+    core.update(actual="0.4%", actual_value=0.396, actual_source="fred", actual_at="2026-07-10T13:05:00Z")
+    store.put_doc("macro_history", {"releases": hist}, source="forexfactory")
+
+    await fetch_calendar("http://x", CAL_MAP, store, fake_get, now=now)   # FF row still has actual=None
+    core = next(r for r in store.doc("macro_history").payload["releases"] if r["name"] == "Core CPI m/m")
+    assert core["actual"] == "0.4%" and core["actual_source"] == "fred" and core["actual_at"]
+    assert core["consensus"] == "0.3%"   # the FF fields still refresh

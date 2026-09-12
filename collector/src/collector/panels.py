@@ -2,7 +2,7 @@
 from __future__ import annotations
 
 import logging
-from datetime import datetime, timedelta
+from datetime import datetime, time, timedelta, timezone
 
 from collector.changes import apply_transform, bp_move, pct_change, ref_close
 from collector.config import CycleSeriesCfg, CycleTabCfg, IndexCfg
@@ -109,8 +109,8 @@ def _refs_panel(store: Store) -> dict:
 
 
 def _macro_panel(store: Store, now: datetime) -> dict:
-    """Timeline split: 'past' = last 7 days from macro_history (FF only serves
-    the current week, so history is our own accumulation); 'releases' = the
+    """Timeline split: 'past' = this week's releases (Monday 00:00 UTC to now)
+    from macro_history, with their actuals as they land; 'releases' = the
     calendar's upcoming entries. Unparseable times ("TBD") stay upcoming."""
     panel = _doc_panel(store, "macro_calendar", "releases")
     upcoming = []
@@ -123,7 +123,7 @@ def _macro_panel(store: Store, now: datetime) -> dict:
         upcoming.append(r)
     panel["releases"] = upcoming
     hist = store.doc("macro_history")
-    cutoff = now - timedelta(days=7)
+    cutoff = datetime.combine(now.date() - timedelta(days=now.weekday()), time.min, tzinfo=timezone.utc)
     past = []
     for r in (hist.payload.get("releases", []) if hist else []):
         try:

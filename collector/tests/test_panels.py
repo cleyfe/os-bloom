@@ -118,10 +118,8 @@ def test_build_dashboard_full_shape(tmp_path):
     macro = dash["panels"]["macro"]
     assert [r["name"] for r in macro["releases"]] == ["CPI y/y"]  # released events filtered out
     assert macro["releases"][0]["series_id"] == "us-cpi-yoy"
-    assert [r["name"] for r in macro["past"]] == [
-        "Non-Farm Payrolls", "Retail Sales m/m",  # chronological, 7-day window
-    ]
-    assert macro["past"][1]["actual"] == "0.4%"
+    assert [r["name"] for r in macro["past"]] == ["Retail Sales m/m"]  # this week only: NFP was last Friday
+    assert macro["past"][0]["actual"] == "0.4%"
     assert dash["panels"]["news"]["items"][0]["feed"] == "FT"
 
     defi = dash["panels"]["defi"]
@@ -238,3 +236,21 @@ def test_cycle_panel_applies_transform(tmp_path):
     ])]
     dash = build_dashboard(store, INDEXES, now=NOW, cycle_series=series, cycle_tabs=tabs)
     assert dash["panels"]["cycle"]["tabs"][0]["panels"][0]["rows"][0]["value"] == 10.0
+
+
+def test_macro_panel_week_starts_monday_utc(tmp_path):
+    store = Store(tmp_path / "t.db")
+    store.put_doc("macro_calendar", {"releases": []}, source="forexfactory")
+    store.put_doc("macro_history", {"releases": [
+        {"name": "Sunday print", "country": "USD", "time": "2026-07-05T19:00:00-04:00", "actual": "1"},
+        {"name": "Monday print", "country": "USD", "time": "2026-07-06T04:30:00-04:00", "actual": "2"},
+        {"name": "Wednesday print", "country": "USD", "time": "2026-07-08T08:30:00-04:00", "actual": "3"},
+    ]}, source="forexfactory")
+    wed = datetime(2026, 7, 8, 14, 30, tzinfo=timezone.utc)
+    assert [r["name"] for r in build_dashboard(store, INDEXES, now=wed)["panels"]["macro"]["past"]] == \
+        ["Monday print", "Wednesday print"]
+    monday_early = datetime(2026, 7, 6, 1, 0, tzinfo=timezone.utc)
+    assert build_dashboard(store, INDEXES, now=monday_early)["panels"]["macro"]["past"] == []
+    sunday_late = datetime(2026, 7, 12, 23, 0, tzinfo=timezone.utc)
+    assert [r["name"] for r in build_dashboard(store, INDEXES, now=sunday_late)["panels"]["macro"]["past"]] == \
+        ["Monday print", "Wednesday print"]

@@ -25,6 +25,15 @@ async def fetch_series(fred_id: str, api_key: str, get_text: GetText) -> list[tu
     return parse_observations(await get_text(BASE, params=params))
 
 
+async def fetch_recent(fred_id: str, api_key: str, get_text: GetText,
+                       since: date) -> list[tuple[date, float]]:
+    """Observations from `since` onward: what the actuals job needs, without
+    pulling a 70-year history every ten minutes on a release day."""
+    params = {"series_id": fred_id, "api_key": api_key, "file_type": "json",
+              "observation_start": since.isoformat()}
+    return parse_observations(await get_text(BASE, params=params))
+
+
 async def fetch_macro_history(
     series: list[SeriesCfg], store: Store, api_key: str, get_text: GetText
 ) -> str:

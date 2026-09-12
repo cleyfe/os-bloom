@@ -117,3 +117,52 @@ def test_cycle_config():
                 assert r.series in by_id, r.series
                 assert r.overlay is None or r.overlay in by_id, r.overlay
                 assert not by_id[r.series].hidden
+
+
+def test_actuals_rules():
+    cfg = load_config(REPO_ROOT / "config.yaml")
+    assert cfg.cadences["actuals"] == 600
+    rules = cfg.actuals
+    assert len(rules) == 18
+    for r in rules:
+        assert (r.fred is None) != (r.eurostat is None), r.match
+        assert r.calc in ("level", "pct_prev", "pct_yoy", "diff_k")
+        assert r.fmt in ("pct1", "pct2", "k") and r.freq in ("m", "q", "d")
+    # first match wins, so the core rules must precede the headline ones
+    names = [(r.country, r.match) for r in rules]
+    assert names.index(("USD", "Core CPI m/m")) < names.index(("USD", "CPI m/m"))
+    assert names.index(("EUR", "Core CPI Flash Estimate y/y")) < names.index(("EUR", "CPI Flash Estimate y/y"))
+    assert names.index(("USD", "Core Retail Sales m/m")) < names.index(("USD", "Retail Sales m/m"))
+    nfp = next(r for r in rules if r.match == "Non-Farm Employment Change")
+    assert nfp.exclude == ["ADP"]
+    assert next(r for r in rules if r.match == "CPI y/y").fred == "CPIAUCNS"   # y/y is printed NSA
+    assert next(r for r in rules if r.match == "CPI m/m").fred == "CPIAUCSL"   # m/m is printed SA
+    eu_gdp = next(r for r in rules if r.country == "EUR" and r.match == "GDP q/q")
+    assert "German" in eu_gdp.exclude and eu_gdp.freq == "q"
+    nfp = next(r for r in rules if r.match == "Non-Farm Employment Change")
+    assert nfp.calc == "diff_k" and nfp.fmt == "k"
+    eu_unemp = next(r for r in rules if r.country == "EUR" and r.match == "Unemployment Rate")
+    assert eu_unemp.lag == 2 and eu_unemp.eurostat.startswith("une_rt_m?")
+    fed = next(r for r in rules if r.match == "Federal Funds Rate")
+    assert fed.freq == "d" and fed.fmt == "pct2" and fed.lag == 1
+
+
+def test_actuals_rule_rejects_ambiguous_source():
+    import pytest
+
+    from collector.config import ActualRuleCfg
+
+    with pytest.raises(ValueError):
+        ActualRuleCfg(country="USD", match="x", fred="A", eurostat="b?c=d")
+    with pytest.raises(ValueError):
+        ActualRuleCfg(country="USD", match="x", fred="A", calc="nope")
+    with pytest.raises(ValueError):
+        ActualRuleCfg(country="USD", match="x", fred="A", fmt="nope")
+    with pytest.raises(ValueError):
+        ActualRuleCfg(country="USD", match="x", fred="A", freq="w")
+    with pytest.raises(ValueError):
+        ActualRuleCfg(country="GBP", match="x", fred="A")
+    with pytest.raises(ValueError):
+        ActualRuleCfg(country="USD", match="x", fred="A", lag=-1)
+    with pytest.raises(ValueError):
+        ActualRuleCfg(country="USD", match="x", fred="A", exclude=[""])
