@@ -14,7 +14,10 @@ export const fmtClock = (iso) => (iso ? iso.slice(11, 19) : "—");
 export const fmtAge = (iso) => {
   if (!iso) return "never";
   const mins = Math.round((Date.now() - Date.parse(iso)) / 60000);
-  return mins < 1 ? "now" : mins < 60 ? `${mins}m ago` : `${Math.round(mins / 60)}h ago`;
+  if (mins < 1) return "now";
+  if (mins < 60) return `${mins}m ago`;
+  if (mins < 48 * 60) return `${Math.round(mins / 60)}h ago`;
+  return `${Math.round(mins / 1440)}d ago`;
 };
 export const isStale = (iso, maxMinutes) =>
   !iso || (Date.now() - Date.parse(iso)) / 60000 > maxMinutes;
