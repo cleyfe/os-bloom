@@ -9,6 +9,7 @@ startup run on every deployment.
 """
 from __future__ import annotations
 
+import logging
 from datetime import datetime, timezone
 from functools import partial
 
@@ -16,6 +17,7 @@ from apscheduler.schedulers.asyncio import AsyncIOScheduler
 
 from collector.config import Config
 from collector.fetchers.bonds import fetch_bonds
+from collector.fetchers.comment import call_claude, fetch_comment
 from collector.fetchers.cycle import fetch_cycle
 from collector.fetchers.equity import fetch_equity
 from collector.fetchers.fred import fetch_macro_history
@@ -30,6 +32,8 @@ from collector.http import GetBytes, GetText, PostJson
 from collector.runner import run_fetcher
 from collector.store import Store
 
+log = logging.getLogger(__name__)
+
 MACRO_HISTORY_SECONDS = 86400  # daily; not config — no reason to tune it
 
 
@@ -41,6 +45,7 @@ def register_jobs(
     post_json: PostJson,
     get_bytes: GetBytes,
     fred_api_key: str,
+    anthropic_api_key: str = "",
 ) -> None:
     fetchers = {
         "equity": (cfg.cadences["equity"],
@@ -67,6 +72,11 @@ def register_jobs(
         "cycle": (cfg.cadences["cycle"],
                   partial(fetch_cycle, cfg.cycle_series, store, fred_api_key, get_text, get_bytes)),
     }
+    if anthropic_api_key:
+        fetchers["comment"] = (cfg.cadences["comment"],
+                               partial(fetch_comment, cfg, store, call_claude))
+    else:
+        log.warning("ANTHROPIC_API_KEY not set; AI market comment job not registered")
     for name, (seconds, fn) in fetchers.items():
         scheduler.add_job(
             partial(run_fetcher, name, store, fn),

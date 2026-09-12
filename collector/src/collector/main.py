@@ -26,7 +26,9 @@ def build() -> tuple[FastAPI, AsyncIOScheduler]:
         log.warning("FRED_API_KEY not set; FRED-backed macro series and the US bond yield will fail")
     app = create_app(store, cfg)
     scheduler = AsyncIOScheduler(timezone="UTC")
-    register_jobs(scheduler, cfg, store, get_text, post_json, get_bytes, os.environ.get("FRED_API_KEY", ""))
+    register_jobs(scheduler, cfg, store, get_text, post_json, get_bytes,
+                  os.environ.get("FRED_API_KEY", ""),
+                  anthropic_api_key=os.environ.get("ANTHROPIC_API_KEY", ""))
     # FastAPI dropped add_event_handler; router.on_startup/on_shutdown lists
     # are the remaining escape hatch for wiring events onto an app built
     # elsewhere (create_app doesn't accept a lifespan callable).

@@ -27,12 +27,12 @@ def test_register_jobs_creates_all_jobs_with_config_cadences(tmp_path):
     scheduler = AsyncIOScheduler(timezone="UTC")
     register_jobs(
         scheduler, cfg, store, get_text=fake_get, post_json=fake_post,
-        get_bytes=fake_bytes, fred_api_key="k"
+        get_bytes=fake_bytes, fred_api_key="k", anthropic_api_key="k"
     )
     jobs = {j.id: j for j in scheduler.get_jobs()}
     assert set(jobs) == {
         "equity", "bonds", "macro", "news", "macro_history", "defi", "midnight",
-        "refs", "refs_history", "morpho", "cycle",
+        "refs", "refs_history", "morpho", "cycle", "comment",
     }
     assert jobs["equity"].trigger.interval.total_seconds() == 300
     assert jobs["news"].trigger.interval.total_seconds() == 600
@@ -44,14 +44,28 @@ def test_register_jobs_creates_all_jobs_with_config_cadences(tmp_path):
     assert jobs["refs_history"].trigger.interval.total_seconds() == 86400
     assert jobs["morpho"].trigger.interval.total_seconds() == 900
     assert jobs["cycle"].trigger.interval.total_seconds() == 86400
+    assert jobs["comment"].trigger.interval.total_seconds() == 43200
     assert all(j.misfire_grace_time == 30 for j in jobs.values())
 
 
 def test_main_builds_app(tmp_path, monkeypatch):
+    monkeypatch.delenv("ANTHROPIC_API_KEY", raising=False)
     monkeypatch.setenv("CONFIG_PATH", str(REPO_ROOT / "config.yaml"))
     monkeypatch.setenv("DB_PATH", str(tmp_path / "t.db"))
     from collector.main import build
 
     app, scheduler = build()
     assert app.title == "os-bloom collector"
+    assert len(scheduler.get_jobs()) == 11
+
+
+def test_comment_job_skipped_without_anthropic_key(tmp_path):
+    cfg = load_config(REPO_ROOT / "config.yaml")
+    store = Store(tmp_path / "t.db")
+    scheduler = AsyncIOScheduler(timezone="UTC")
+    register_jobs(
+        scheduler, cfg, store, get_text=fake_get, post_json=fake_post,
+        get_bytes=fake_bytes, fred_api_key="k", anthropic_api_key=""
+    )
+    assert "comment" not in {j.id for j in scheduler.get_jobs()}
     assert len(scheduler.get_jobs()) == 11
