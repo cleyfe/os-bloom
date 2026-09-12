@@ -13,7 +13,7 @@ export function renderComment(panel, staleMinutes) {
   if (!el) return;  // stale index.html with new JS during a deploy: skip, don't kill the tick
   const c = panel?.comment ?? null;
   el.classList.toggle("hidden", !c);
-  el.closest(".grid").classList.toggle("has-comment", !!c);
+  el.closest(".grid")?.classList.toggle("has-comment", !!c);
   if (!c) return;
   el.querySelector(".comment-headline").textContent = c.headline ?? "";
   el.querySelector(".comment-read").textContent = c.regime_read ?? "";

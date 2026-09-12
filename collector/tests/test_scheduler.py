@@ -1,3 +1,4 @@
+from datetime import timedelta
 from pathlib import Path
 
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
@@ -91,3 +92,16 @@ def test_comment_job_skipped_with_blank_anthropic_key(tmp_path):
         get_bytes=fake_bytes, fred_api_key="k", anthropic_api_key="   "
     )
     assert "comment" not in {j.id for j in scheduler.get_jobs()}
+
+
+def test_comment_job_first_run_is_delayed_until_data_has_landed(tmp_path):
+    cfg = load_config(REPO_ROOT / "config.yaml")
+    store = Store(tmp_path / "t.db")
+    scheduler = AsyncIOScheduler(timezone="UTC")
+    register_jobs(
+        scheduler, cfg, store, get_text=fake_get, post_json=fake_post,
+        get_bytes=fake_bytes, fred_api_key="k", anthropic_api_key="k"
+    )
+    jobs = {j.id: j for j in scheduler.get_jobs()}
+    lag = jobs["comment"].next_run_time - jobs["equity"].next_run_time
+    assert timedelta(minutes=4) < lag <= timedelta(minutes=5)
