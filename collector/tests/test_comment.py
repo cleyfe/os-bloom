@@ -7,8 +7,8 @@ import pytest
 
 from collector.config import load_config
 from collector.fetchers.comment import (
-    COMMENT_SCHEMA, SYSTEM, TRIAGE_SCHEMA, TRIAGE_THRESHOLD, _parse_response, _web_fetch_tool,
-    build_snapshot, fetch_comment, select_articles,
+    COMMENT_SCHEMA, SYSTEM, TRIAGE_SCHEMA, TRIAGE_THRESHOLD, _news_items, _parse_response,
+    _web_fetch_tool, build_snapshot, fetch_comment, select_articles,
 )
 from collector.store import Store
 
@@ -89,7 +89,6 @@ def test_build_snapshot_on_empty_store(tmp_path):
 
 async def test_select_articles_threshold_order_cap_and_url(tmp_path):
     store = seeded_store(tmp_path)
-    from collector.fetchers.comment import _news_items
     items = _news_items(store)
     assert [i["id"] for i in items] == [0, 1, 2, 3]
     # id 3 has no url so it is never offered to triage; ids 0 and 2 score in, 1 is below threshold
@@ -107,7 +106,6 @@ async def test_select_articles_tolerates_triage_failure(tmp_path):
     async def boom(*_a):
         raise RuntimeError("triage down")
 
-    from collector.fetchers.comment import _news_items
     assert await select_articles(_news_items(seeded_store(tmp_path)), boom, "m", 4) == []
 
 
@@ -269,7 +267,40 @@ def test_parse_response_raises_without_text_block():
 
 def test_web_fetch_tool_is_bounded_to_the_selected_hosts():
     tool = _web_fetch_tool(["https://www.cnbc.com/fed", "https://www.ft.com/bunds", "https://ft.com/x"])
-    assert tool["type"] == "web_fetch_20260318" and tool["name"] == "web_fetch"
+    assert tool["type"] == "web_fetch_20250910" and tool["name"] == "web_fetch"
     assert tool["max_uses"] == 3
     assert tool["allowed_domains"] == ["cnbc.com", "ft.com"]
     assert tool["max_content_tokens"] == 4000
+
+
+@pytest.mark.parametrize("payload", [{"items": None}, {"items": 7}, {"items": [1, "x"]}, ["nope"], {}])
+def test_news_items_tolerates_a_malformed_doc(tmp_path, payload):
+    store = Store(tmp_path / "t.db")
+    store.put_doc("news", payload, source="rss")
+    assert _news_items(store) == []
+
+
+async def test_select_articles_ignores_duplicate_and_unknown_ids_and_omits_urls(tmp_path):
+    items = _news_items(seeded_store(tmp_path))
+    seen = {}
+
+    async def triage(model, system, user_text, schema, fetch_urls):
+        seen["user_text"] = user_text
+        return {"scores": [{"id": 0, "score": 2, "reason": "first"}, {"id": 0, "score": 8, "reason": None},
+                           {"id": 42, "score": 10, "reason": "ghost"}]}, model, []
+
+    chosen = await select_articles(items, triage, "m", max_articles=4)
+    assert [a["id"] for a in chosen] == [0]      # last score for a repeated id wins; unknown ids dropped
+    assert chosen[0]["reason"] == ""             # a null reason is stored as empty, not "None"
+    assert "https://" not in seen["user_text"]   # triage sees headlines and summaries, never URLs
+
+
+async def test_fetched_flag_tolerates_url_normalisation(tmp_path):
+    cfg = load_config(REPO_ROOT / "config.yaml")
+    store = seeded_store(tmp_path)
+
+    async def fake_call(model, system, user_text, schema, fetch_urls):
+        return FAKE_COMMENT, model, [{"url": "https://WWW.cnbc.com/fed/", "fetched": True}]
+
+    await fetch_comment(cfg, store, fake_call, triage_scoring({0: 9}), now=NOW)
+    assert store.doc("market_comment").payload["sources"][0]["fetched"] is True
