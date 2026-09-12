@@ -43,6 +43,12 @@ MACRO_HISTORY_SECONDS = 86400  # daily; not config — no reason to tune it
 FIRST_RUN_DELAY = {"comment": timedelta(minutes=5)}
 
 
+def comment_fetch(cfg: Config, store: Store):
+    """The comment job's fetch callable, shared by the scheduler and the
+    on-demand refresh endpoint so both run exactly the same thing."""
+    return partial(fetch_comment, cfg, store, call_claude)
+
+
 def register_jobs(
     scheduler: AsyncIOScheduler,
     cfg: Config,
@@ -79,8 +85,7 @@ def register_jobs(
                   partial(fetch_cycle, cfg.cycle_series, store, fred_api_key, get_text, get_bytes)),
     }
     if anthropic_api_key.strip():
-        fetchers["comment"] = (cfg.cadences["comment"],
-                               partial(fetch_comment, cfg, store, call_claude))
+        fetchers["comment"] = (cfg.cadences["comment"], comment_fetch(cfg, store))
     else:
         log.info("ANTHROPIC_API_KEY not set; AI market comment disabled (optional feature)")
     now = datetime.now(timezone.utc)  # one shared timestamp: per-job datetime.now()

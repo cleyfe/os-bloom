@@ -176,14 +176,24 @@ def _cycle_panel(
             "source": "cycle"}
 
 
-def _comment_panel(store: Store) -> dict:
-    """AI market comment; `comment` is None until the first successful run."""
+def is_stale(updated_at: str | None, now: datetime, stale_hours: int) -> bool:
+    try:
+        written = datetime.fromisoformat(updated_at.replace("Z", "+00:00"))
+    except (AttributeError, ValueError):
+        return True
+    return now - written > timedelta(hours=stale_hours)
+
+
+def comment_panel(store: Store, now: datetime, stale_hours: int) -> dict:
+    """AI market comment; `comment` is None until the first successful run.
+    `stale` is the one verdict the band, the refresh endpoint and the amber
+    marker all read, so it is decided here rather than in the browser."""
     doc = store.doc("market_comment")
     if doc is None:
-        return {"comment": None, "updated_at": None, "source": None}
+        return {"comment": None, "updated_at": None, "source": None, "stale": False}
     payload = doc.payload if isinstance(doc.payload, dict) else {}
-    return {"comment": payload.get("comment"),
-            "updated_at": doc.updated_at, "source": doc.source}
+    return {"comment": payload.get("comment"), "updated_at": doc.updated_at,
+            "source": doc.source, "stale": is_stale(doc.updated_at, now, stale_hours)}
 
 
 def _news_panel(store: Store) -> dict:
@@ -207,6 +217,7 @@ def build_dashboard(
     now: datetime,
     cycle_series: list[CycleSeriesCfg] = (),
     cycle_tabs: list[CycleTabCfg] = (),
+    comment_stale_hours: int = 24,
 ) -> dict:
     equity_doc = store.doc("equity_quotes")
     bonds_doc = store.doc("bond_quotes")
@@ -225,6 +236,6 @@ def build_dashboard(
             "morpho": _doc_panel(store, "morpho_markets", "rows"),
             "refs": _refs_panel(store),
             "cycle": _cycle_panel(store, list(cycle_series), list(cycle_tabs)),
-            "comment": _comment_panel(store),
+            "comment": comment_panel(store, now, comment_stale_hours),
         },
     }

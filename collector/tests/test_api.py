@@ -10,10 +10,10 @@ from collector.store import Store
 REPO_ROOT = Path(__file__).resolve().parents[2]
 
 
-def make_client(tmp_path):
+def make_client(tmp_path, refresh=None):
     store = Store(tmp_path / "t.db")
     cfg = load_config(REPO_ROOT / "config.yaml")
-    return TestClient(create_app(store, cfg)), store
+    return TestClient(create_app(store, cfg, comment_refresh=refresh)), store
 
 
 def test_dashboard_shape_on_empty_store(tmp_path):
@@ -155,3 +155,78 @@ def test_recessions_endpoint(tmp_path):
 def test_recessions_empty_store(tmp_path):
     client, _ = make_client(tmp_path)
     assert client.get("/api/recessions").json() == {"bands": []}
+
+
+def test_refresh_unconfigured_is_503(tmp_path):
+    client, _ = make_client(tmp_path)
+    r = client.post("/api/comment/refresh")
+    assert r.status_code == 503
+
+
+def test_refresh_refused_while_comment_is_current(tmp_path):
+    calls = []
+
+    async def refresh():
+        calls.append(1)
+
+    client, store = make_client(tmp_path, refresh)
+    store.put_doc("market_comment", {"comment": {"headline": "H"}}, source="m")
+    r = client.post("/api/comment/refresh")
+    assert r.status_code == 429 and "current" in r.json()["detail"]
+    assert calls == []
+
+
+def test_refresh_runs_when_outdated_then_cools_down(tmp_path):
+    calls = []
+    holder = {}
+
+    async def refresh():
+        calls.append(1)
+        holder["store"].record_success("comment", "m")  # what run_fetcher does on success
+
+    client, store = make_client(tmp_path, refresh)
+    holder["store"] = store
+    store.put_doc("market_comment", {"comment": {"headline": "old"}}, source="m")
+    store.conn.execute("UPDATE docs SET updated_at=? WHERE key='market_comment'",
+                       ("2020-01-01T00:00:00Z",))
+    store.conn.commit()
+    r = client.post("/api/comment/refresh")
+    assert r.status_code == 202 and calls == [1]
+    r = client.post("/api/comment/refresh")  # the attempt was just recorded
+    assert r.status_code == 429 and "try again" in r.json()["detail"]
+    assert calls == [1]
+
+
+def test_refresh_allowed_with_no_comment_yet(tmp_path):
+    calls = []
+
+    async def refresh():
+        calls.append(1)
+
+    client, _ = make_client(tmp_path, refresh)
+    assert client.post("/api/comment/refresh").status_code == 202
+    assert calls == [1]
+
+
+def test_refresh_cools_down_after_a_failure_too(tmp_path):
+    async def refresh():
+        raise AssertionError("must not run")
+
+    client, store = make_client(tmp_path, refresh)
+    store.record_error("comment", "BadRequestError: credit balance too low")
+    assert client.post("/api/comment/refresh").status_code == 429
+
+
+def test_cooldown_remaining():
+    from datetime import datetime, timedelta, timezone
+
+    from collector.api import REFRESH_COOLDOWN, _cooldown_remaining
+
+    now = datetime(2026, 9, 12, 12, 0, tzinfo=timezone.utc)
+    assert _cooldown_remaining(None, now) == 0
+    assert _cooldown_remaining({"last_success": None, "last_error_at": None}, now) == 0
+    recent = (now - timedelta(minutes=3)).isoformat().replace("+00:00", "Z")
+    left = _cooldown_remaining({"last_success": None, "last_error_at": recent}, now)
+    assert left == int((REFRESH_COOLDOWN - timedelta(minutes=3)).total_seconds())
+    old = (now - timedelta(hours=1)).isoformat().replace("+00:00", "Z")
+    assert _cooldown_remaining({"last_success": old, "last_error_at": None}, now) == 0

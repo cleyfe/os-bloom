@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import logging
 import os
+from functools import partial
 from pathlib import Path
 
 import uvicorn
@@ -13,7 +14,8 @@ from fastapi.staticfiles import StaticFiles
 from collector.api import create_app
 from collector.config import load_config
 from collector.http import get_bytes, get_text, post_json
-from collector.scheduler import register_jobs
+from collector.runner import run_fetcher
+from collector.scheduler import comment_fetch, register_jobs
 from collector.store import Store
 
 log = logging.getLogger(__name__)
@@ -24,11 +26,16 @@ def build() -> tuple[FastAPI, AsyncIOScheduler]:
     store = Store(cfg.db_path)
     if not os.environ.get("FRED_API_KEY"):
         log.warning("FRED_API_KEY not set; FRED-backed macro series and the US bond yield will fail")
-    app = create_app(store, cfg)
+    anthropic_api_key = os.environ.get("ANTHROPIC_API_KEY", "")
+    # The refresh endpoint runs the very same job the scheduler runs, through
+    # the same runner, so it records status the same way.
+    comment_refresh = None
+    if anthropic_api_key.strip():
+        comment_refresh = partial(run_fetcher, "comment", store, comment_fetch(cfg, store))
+    app = create_app(store, cfg, comment_refresh=comment_refresh)
     scheduler = AsyncIOScheduler(timezone="UTC")
     register_jobs(scheduler, cfg, store, get_text, post_json, get_bytes,
-                  os.environ.get("FRED_API_KEY", ""),
-                  anthropic_api_key=os.environ.get("ANTHROPIC_API_KEY", ""))
+                  os.environ.get("FRED_API_KEY", ""), anthropic_api_key=anthropic_api_key)
     # FastAPI dropped add_event_handler; router.on_startup/on_shutdown lists
     # are the remaining escape hatch for wiring events onto an app built
     # elsewhere (create_app doesn't accept a lifespan callable).

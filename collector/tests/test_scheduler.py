@@ -58,6 +58,8 @@ def test_main_builds_app(tmp_path, monkeypatch):
     app, scheduler = build()
     assert app.title == "os-bloom collector"
     assert len(scheduler.get_jobs()) == 11
+    from fastapi.testclient import TestClient
+    assert TestClient(app).post("/api/comment/refresh").status_code == 503  # no key: not wired
 
 
 def test_comment_job_skipped_without_anthropic_key(tmp_path):
@@ -81,6 +83,7 @@ def test_main_registers_comment_job_with_anthropic_key(tmp_path, monkeypatch):
     _app, scheduler = build()
     assert "comment" in {j.id for j in scheduler.get_jobs()}
     assert len(scheduler.get_jobs()) == 12
+    assert any(getattr(r, "path", "") == "/api/comment/refresh" for r in _app.routes)
 
 
 def test_comment_job_skipped_with_blank_anthropic_key(tmp_path):

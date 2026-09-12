@@ -1,18 +1,34 @@
 """Read-only JSON API. App factory so tests inject their own store/config."""
 from __future__ import annotations
 
+import asyncio
 from datetime import datetime, timedelta, timezone
-from typing import Literal
+from typing import Awaitable, Callable, Literal
 
-from fastapi import FastAPI, HTTPException
+from fastapi import BackgroundTasks, FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 
 from collector.changes import apply_transform, to_bands
 from collector.config import Config
-from collector.panels import build_dashboard
+from collector.panels import build_dashboard, comment_panel
 from collector.store import Store
 
 RANGE_DAYS = {"1y": 365, "5y": 5 * 365, "10y": 10 * 365}
+
+REFRESH_COOLDOWN = timedelta(minutes=10)  # between comment attempts, success or failure
+
+
+def _cooldown_remaining(status: dict | None, now: datetime) -> int:
+    """Seconds before another comment attempt is allowed; 0 when free. Reads the
+    same fetcher_status row the scheduler writes, so a failing key cannot be
+    retried faster than six times an hour by anyone."""
+    if not status:
+        return 0
+    stamps = [s for s in (status.get("last_success"), status.get("last_error_at")) if s]
+    if not stamps:
+        return 0
+    last = max(datetime.fromisoformat(s.replace("Z", "+00:00")) for s in stamps)
+    return max(0, int((REFRESH_COOLDOWN - (now - last)).total_seconds()))
 
 
 def _fetcher_healthy(f: dict) -> bool:
@@ -23,7 +39,8 @@ def _fetcher_healthy(f: dict) -> bool:
     return f["last_success"] >= f["last_error_at"]
 
 
-def create_app(store: Store, cfg: Config) -> FastAPI:
+def create_app(store: Store, cfg: Config,
+               comment_refresh: Callable[[], Awaitable[None]] | None = None) -> FastAPI:
     app = FastAPI(title="os-bloom collector", docs_url=None, redoc_url=None)
     app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["GET"])
     series_by_id = {s.id: s for s in cfg.series}
@@ -44,7 +61,8 @@ def create_app(store: Store, cfg: Config) -> FastAPI:
     @app.get("/api/dashboard")
     def dashboard() -> dict:
         return build_dashboard(store, cfg.indexes, now=datetime.now(timezone.utc),
-                               cycle_series=cfg.cycle_series, cycle_tabs=cfg.cycle_tabs)
+                               cycle_series=cfg.cycle_series, cycle_tabs=cfg.cycle_tabs,
+                               comment_stale_hours=cfg.comment.stale_hours)
 
     @app.get("/api/series/{series_id}")
     def series(series_id: str, range: Literal["1y", "5y", "10y", "max"] = "10y") -> dict:
@@ -82,6 +100,37 @@ def create_app(store: Store, cfg: Config) -> FastAPI:
     def recessions() -> dict:
         bands = to_bands(store.points("cycle:usrec"))
         return {"bands": [[a.isoformat(), b.isoformat()] for a, b in bands]}
+
+    refresh_lock = asyncio.Lock()
+
+    @app.post("/api/comment/refresh", status_code=202)
+    async def refresh_comment(background: BackgroundTasks) -> dict:
+        """Regenerate the AI comment on demand. Guarded so a public deployment
+        cannot be used to spend money: only when the comment is outdated, never
+        concurrently, never more than once per cooldown window."""
+        if comment_refresh is None:
+            raise HTTPException(status_code=503, detail="AI comment is not configured")
+        now = datetime.now(timezone.utc)
+        panel = comment_panel(store, now, cfg.comment.stale_hours)
+        if panel["comment"] is not None and not panel["stale"]:
+            raise HTTPException(status_code=429, detail="comment is current")
+        remaining = _cooldown_remaining(store.status("comment"), now)
+        if remaining:
+            raise HTTPException(status_code=429, detail=f"try again in {remaining}s")
+        if refresh_lock.locked():
+            raise HTTPException(status_code=409, detail="refresh already running")
+        await refresh_lock.acquire()  # cannot block: checked above with no await in between
+
+        async def run() -> None:
+            try:
+                await comment_refresh()
+            finally:
+                refresh_lock.release()
+
+        # Runs after the response is sent, on the same loop. The TestClient
+        # runs it before returning, which keeps the tests deterministic.
+        background.add_task(run)
+        return {"accepted": True}
 
     @app.get("/healthz")
     def healthz() -> dict:

@@ -243,7 +243,7 @@ def test_cycle_panel_applies_transform(tmp_path):
 def test_comment_panel_empty_and_populated(tmp_path):
     store = Store(tmp_path / "t.db")
     dash = build_dashboard(store, INDEXES, now=NOW)
-    assert dash["panels"]["comment"] == {"comment": None, "updated_at": None, "source": None}
+    assert dash["panels"]["comment"] == {"comment": None, "updated_at": None, "source": None, "stale": False}
     store.put_doc("market_comment", {
         "comment": {"headline": "H"}, "snapshot_as_of": "x", "model": "claude-opus-5",
     }, source="claude-opus-5")
@@ -258,7 +258,7 @@ def test_comment_panel_degrades_on_bad_payload(tmp_path):
     store = Store(tmp_path / "t.db")
     store.put_doc("market_comment", {"snapshot_as_of": "x"}, source="m")
     panel = build_dashboard(store, INDEXES, now=NOW)["panels"]["comment"]
-    assert set(panel) == {"comment", "updated_at", "source"}
+    assert set(panel) == {"comment", "updated_at", "source", "stale"}
     assert panel["comment"] is None and panel["source"] == "m" and panel["updated_at"]
     store.put_doc("market_comment", ["not", "a", "dict"], source="m")
     panel = build_dashboard(store, INDEXES, now=NOW)["panels"]["comment"]
@@ -274,3 +274,16 @@ def test_news_panel_strips_summaries(tmp_path):
     items = build_dashboard(store, INDEXES, now=NOW)["panels"]["news"]["items"]
     assert items == [{"headline": "H", "url": "http://x", "feed": "FT",
                       "published_at": "2026-09-12T00:00:00Z", "source": "rss"}]
+
+
+def test_comment_panel_stale_flag_from_stale_hours(tmp_path):
+    store = Store(tmp_path / "t.db")
+    store.put_doc("market_comment", {"comment": {"headline": "H"}}, source="m")
+    written = datetime.now(timezone.utc)
+    fresh = build_dashboard(store, INDEXES, now=written)["panels"]["comment"]
+    assert fresh["stale"] is False
+    old = build_dashboard(store, INDEXES, now=written + timedelta(hours=25))["panels"]["comment"]
+    assert old["stale"] is True
+    wide = build_dashboard(store, INDEXES, now=written + timedelta(hours=25),
+                           comment_stale_hours=48)["panels"]["comment"]
+    assert wide["stale"] is False
