@@ -85,6 +85,30 @@ class CalendarMapEntry:
 
 
 @dataclass(frozen=True)
+class ActualRuleCfg:
+    """How a released calendar row's printed number is reproduced from a free series."""
+    country: str
+    match: str                   # case-insensitive substring of the FF title; list order breaks ties
+    fred: str | None = None
+    eurostat: str | None = None  # "dataset?dim=code&..." selecting exactly one series
+    calc: str = "level"          # level | pct_prev | pct_yoy | diff_k
+    fmt: str = "pct1"            # pct1 | pct2 | k
+    freq: str = "m"              # m | q | d
+    lag: int = 1                 # reference periods back (m, q) or days after the decision (d)
+
+    def __post_init__(self) -> None:
+        where = f"actuals rule {self.country} {self.match!r}"
+        if (self.fred is None) == (self.eurostat is None):
+            raise ValueError(f"{where}: exactly one of fred / eurostat")
+        if self.calc not in ("level", "pct_prev", "pct_yoy", "diff_k"):
+            raise ValueError(f"{where}: unknown calc {self.calc!r}")
+        if self.fmt not in ("pct1", "pct2", "k"):
+            raise ValueError(f"{where}: unknown fmt {self.fmt!r}")
+        if self.freq not in ("m", "q", "d"):
+            raise ValueError(f"{where}: unknown freq {self.freq!r}")
+
+
+@dataclass(frozen=True)
 class FeedCfg:
     name: str
     url: str
@@ -185,6 +209,7 @@ class Config:
     cycle_series: list[CycleSeriesCfg]
     cycle_tabs: list[CycleTabCfg]
     calendar_map: list[CalendarMapEntry]
+    actuals: list[ActualRuleCfg]
     feeds: list[FeedCfg]
     zyfai_base: str
     midnight_base: str
@@ -218,6 +243,7 @@ def load_config(path: str | Path) -> Config:
             for t in raw["cycle_tabs"]
         ],
         calendar_map=[CalendarMapEntry(**m) for m in raw["calendar_map"]],
+        actuals=[ActualRuleCfg(**a) for a in raw["actuals"]],
         feeds=[FeedCfg(**f) for f in raw["feeds"]],
         zyfai_base=raw["zyfai_base"],
         midnight_base=raw["midnight_base"],
