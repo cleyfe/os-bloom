@@ -25,10 +25,13 @@ export function renderComment(panel) {
   el.classList.toggle("hidden", !c);
   el.closest(".grid")?.classList.toggle("has-comment", !!c);
   if (!c) return;
+  const body = el.querySelector(".comment-body");
+  const outdated = el.querySelector(".comment-outdated");
+  if (!body || !outdated) return;  // same deploy-skew guard, one markup generation later
   const stale = !!panel.stale;
   el.dataset.updatedAt = panel.updated_at ?? "";
-  el.querySelector(".comment-body").classList.toggle("hidden", stale);
-  el.querySelector(".comment-outdated").classList.toggle("hidden", !stale);
+  body.classList.toggle("hidden", stale);
+  outdated.classList.toggle("hidden", !stale);
   const meta = el.querySelector(".comment-meta");
   meta.textContent =
     `${(panel.source ?? "—").toUpperCase()} · ${fmtAge(panel.updated_at)} · AI-GENERATED, NOT INVESTMENT ADVICE`;
@@ -40,6 +43,7 @@ export function renderComment(panel) {
     }
     return;
   }
+  holdStatus = false;  // a fresh comment retires any refresh failure message
   el.querySelector(".comment-headline").textContent = c.headline ?? "";
   el.querySelector(".comment-read").textContent = c.regime_read ?? "";
   el.querySelector(".comment-drivers").innerHTML =
@@ -57,6 +61,7 @@ export function initCommentRefresh() {
   if (!el) return;
   const btn = el.querySelector(".comment-refresh");
   const status = el.querySelector(".comment-outdated-text");
+  if (!btn || !status) return;  // old index.html without the control: nothing to bind
   btn.addEventListener("click", async () => {
     if (btn.disabled) return;
     btn.disabled = true;
@@ -71,7 +76,12 @@ export function initCommentRefresh() {
       }
       for (let i = 0; i < POLL_TRIES; i++) {
         await sleep(POLL_MS);
-        const p = (await getDashboard()).panels.comment;
+        let p;
+        try {
+          p = (await getDashboard()).panels.comment;
+        } catch {
+          continue;  // one blip on the dashboard is not a failed refresh
+        }
         if (p?.updated_at && p.updated_at !== before) {
           holdStatus = false;
           renderComment(p);

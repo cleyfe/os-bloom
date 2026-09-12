@@ -127,7 +127,7 @@ tr.macro-divider td { color: var(--amber); letter-spacing: 2px; font-size: 10px;
   background: none; border: 1px solid var(--amber); color: var(--amber);
   font: inherit; font-size: 11px; letter-spacing: 2px; padding: 2px 10px; cursor: pointer;
 }
-.comment-refresh:hover { background: var(--amber); color: var(--bg); }
+.comment-refresh:hover:not(:disabled) { background: var(--amber); color: var(--bg); }
 .comment-refresh:disabled { opacity: .5; cursor: default; }
 
 @media (max-width: 1000px) {
