@@ -15,7 +15,7 @@ live upstreams, awkward data, and decisions that have to be defended.
 
 [![License](https://img.shields.io/badge/license-MIT-f5a623?style=flat-square)](LICENSE)
 ![Python](https://img.shields.io/badge/python-3.12+-5f9ea0?style=flat-square)
-![Tests](https://img.shields.io/badge/tests-208%20passing-4c9a2a?style=flat-square)
+![Tests](https://img.shields.io/badge/tests-209%20passing-4c9a2a?style=flat-square)
 ![Paid data sources](https://img.shields.io/badge/paid%20data%20sources-0-f5a623?style=flat-square)
 ![Built AI-first](https://img.shields.io/badge/built-AI--first-8a63d2?style=flat-square)
 
