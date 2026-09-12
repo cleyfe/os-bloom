@@ -181,7 +181,8 @@ def _comment_panel(store: Store) -> dict:
     doc = store.doc("market_comment")
     if doc is None:
         return {"comment": None, "updated_at": None, "source": None}
-    return {"comment": doc.payload.get("comment"),
+    payload = doc.payload if isinstance(doc.payload, dict) else {}
+    return {"comment": payload.get("comment"),
             "updated_at": doc.updated_at, "source": doc.source}
 
 

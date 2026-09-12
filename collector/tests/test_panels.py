@@ -252,3 +252,14 @@ def test_comment_panel_empty_and_populated(tmp_path):
     assert panel["comment"]["headline"] == "H"
     assert panel["source"] == "claude-opus-5"
     assert panel["updated_at"] is not None
+
+
+def test_comment_panel_degrades_on_bad_payload(tmp_path):
+    store = Store(tmp_path / "t.db")
+    store.put_doc("market_comment", {"snapshot_as_of": "x"}, source="m")
+    panel = build_dashboard(store, INDEXES, now=NOW)["panels"]["comment"]
+    assert set(panel) == {"comment", "updated_at", "source"}
+    assert panel["comment"] is None and panel["source"] == "m" and panel["updated_at"]
+    store.put_doc("market_comment", ["not", "a", "dict"], source="m")
+    panel = build_dashboard(store, INDEXES, now=NOW)["panels"]["comment"]
+    assert panel["comment"] is None
