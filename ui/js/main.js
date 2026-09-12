@@ -4,6 +4,7 @@ import { defiFootData, initDefiViewToggle, renderDefi, renderMidnight } from "./
 import { renderBonds, renderEquity } from "./panels/equity.js";
 import { renderMacro } from "./panels/macro.js";
 import { renderNews } from "./panels/news.js";
+import { renderComment } from "./panels/comment.js";
 import { renderCycle } from "./panels/cycle.js";
 import { renderRefs } from "./panels/refs.js";
 import { initTabs } from "./tabs.js";
@@ -43,6 +44,7 @@ async function tick() {
     renderMidnight(p.midnight ?? EMPTY);
     renderRefs(p.refs ?? EMPTY);
     renderCycle(p.cycle ?? { tabs: [], updated_at: null });
+    renderComment(p.comment);  // undefined from an old collector -> band stays hidden
     foot("equity", "equity", { ...p.equity, source: p.equity.rows[0]?.source });
     foot("bonds", "bonds", p.bonds);
     foot("macro", "macro", p.macro);
