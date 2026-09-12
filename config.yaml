@@ -13,6 +13,7 @@ cadences:          # seconds between fetcher runs
   refs_history: 86400
   morpho: 900
   cycle: 86400   # daily; weekly sources just re-upsert (idempotent)
+  comment: 43200 # AI market comment, twice daily; job only registered when ANTHROPIC_API_KEY is set
 
 indexes:           # all served by yahoo
   - { symbol: SPX,  name: "S&P 500",       yahoo: "^GSPC" }
@@ -51,6 +52,9 @@ series:            # macro click-through charts; transform per changes.apply_tra
   - { id: ez-unemployment,  name: "EZ Unemployment %",       fred: LRHUTTTTEZM156S,    unit: "%",   transform: none }
   - { id: ez-gdp,           name: "EZ Real GDP QoQ %",       fred: CLVMEURSCAB1GQEA19, unit: "%",   transform: pct_prev }
   - { id: ez-ecb-rate,      name: "ECB Deposit Rate %",      fred: ECBDFR,             unit: "%",   transform: none }
+
+comment:           # AI market comment band on the MKT tab (opt-in: needs ANTHROPIC_API_KEY)
+  model: claude-opus-5
 
 cycle_series:      # market-cycle series (spec 2026-08-24); exactly one source key each
   # ---- hidden infrastructure ----

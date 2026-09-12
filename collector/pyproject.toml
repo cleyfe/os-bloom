@@ -13,6 +13,7 @@ dependencies = [
     "pyyaml>=6",
     "feedparser>=6.0.11",
     "xlrd>=2",  # AAII sentiment survey ships as legacy .xls
+    "anthropic>=1",  # AI market comment; the job is registered only when ANTHROPIC_API_KEY is set
 ]
 
 [project.optional-dependencies]

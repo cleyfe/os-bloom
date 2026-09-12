@@ -78,6 +78,11 @@ class CycleTabCfg:
 
 
 @dataclass(frozen=True)
+class CommentCfg:
+    model: str  # Anthropic model id for the AI market comment
+
+
+@dataclass(frozen=True)
 class CalendarMapEntry:
     country: str
     match: str
@@ -184,6 +189,7 @@ class Config:
     series: list[SeriesCfg]
     cycle_series: list[CycleSeriesCfg]
     cycle_tabs: list[CycleTabCfg]
+    comment: CommentCfg
     calendar_map: list[CalendarMapEntry]
     feeds: list[FeedCfg]
     zyfai_base: str
@@ -217,6 +223,7 @@ def load_config(path: str | Path) -> Config:
             )
             for t in raw["cycle_tabs"]
         ],
+        comment=CommentCfg(**raw["comment"]),
         calendar_map=[CalendarMapEntry(**m) for m in raw["calendar_map"]],
         feeds=[FeedCfg(**f) for f in raw["feeds"]],
         zyfai_base=raw["zyfai_base"],

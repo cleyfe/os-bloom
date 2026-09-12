@@ -117,3 +117,9 @@ def test_cycle_config():
                 assert r.series in by_id, r.series
                 assert r.overlay is None or r.overlay in by_id, r.overlay
                 assert not by_id[r.series].hidden
+
+
+def test_comment_config():
+    cfg = load_config(REPO_ROOT / "config.yaml")
+    assert cfg.cadences["comment"] == 43200
+    assert cfg.comment.model == "claude-opus-5"
