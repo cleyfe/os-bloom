@@ -69,3 +69,25 @@ def test_comment_job_skipped_without_anthropic_key(tmp_path):
     )
     assert "comment" not in {j.id for j in scheduler.get_jobs()}
     assert len(scheduler.get_jobs()) == 11
+
+
+def test_main_registers_comment_job_with_anthropic_key(tmp_path, monkeypatch):
+    monkeypatch.setenv("ANTHROPIC_API_KEY", "k")
+    monkeypatch.setenv("CONFIG_PATH", str(REPO_ROOT / "config.yaml"))
+    monkeypatch.setenv("DB_PATH", str(tmp_path / "t.db"))
+    from collector.main import build
+
+    _app, scheduler = build()
+    assert "comment" in {j.id for j in scheduler.get_jobs()}
+    assert len(scheduler.get_jobs()) == 12
+
+
+def test_comment_job_skipped_with_blank_anthropic_key(tmp_path):
+    cfg = load_config(REPO_ROOT / "config.yaml")
+    store = Store(tmp_path / "t.db")
+    scheduler = AsyncIOScheduler(timezone="UTC")
+    register_jobs(
+        scheduler, cfg, store, get_text=fake_get, post_json=fake_post,
+        get_bytes=fake_bytes, fred_api_key="k", anthropic_api_key="   "
+    )
+    assert "comment" not in {j.id for j in scheduler.get_jobs()}

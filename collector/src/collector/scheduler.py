@@ -45,7 +45,7 @@ def register_jobs(
     post_json: PostJson,
     get_bytes: GetBytes,
     fred_api_key: str,
-    anthropic_api_key: str = "",
+    anthropic_api_key: str,
 ) -> None:
     fetchers = {
         "equity": (cfg.cadences["equity"],
@@ -72,11 +72,11 @@ def register_jobs(
         "cycle": (cfg.cadences["cycle"],
                   partial(fetch_cycle, cfg.cycle_series, store, fred_api_key, get_text, get_bytes)),
     }
-    if anthropic_api_key:
+    if anthropic_api_key.strip():
         fetchers["comment"] = (cfg.cadences["comment"],
                                partial(fetch_comment, cfg, store, call_claude))
     else:
-        log.warning("ANTHROPIC_API_KEY not set; AI market comment job not registered")
+        log.info("ANTHROPIC_API_KEY not set; AI market comment disabled (optional feature)")
     for name, (seconds, fn) in fetchers.items():
         scheduler.add_job(
             partial(run_fetcher, name, store, fn),
