@@ -50,7 +50,7 @@ COMMENT_SCHEMA = {
     },
 }
 
-# Stable across runs -> prompt-cached; anything volatile goes in the user turn.
+# Stable across runs (no dates, no snapshot content); anything volatile goes in the user turn.
 SYSTEM = """You are the in-house market strategist for a self-hosted market terminal.
 Twice a day you write a short, data-grounded market comment that sits in a
 band at the top of the terminal's main tab.
