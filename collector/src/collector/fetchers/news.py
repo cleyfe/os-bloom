@@ -5,6 +5,7 @@ the protocol, append to the sources list in main.py.
 """
 from __future__ import annotations
 
+import html
 import logging
 import re
 from calendar import timegm
@@ -18,6 +19,17 @@ from collector.http import GetText
 from collector.store import Store
 
 log = logging.getLogger(__name__)
+
+_TAG = re.compile(r"<[^>]+>")
+SUMMARY_CHARS = 300  # the feed's own blurb, enough for triage; article text is never stored
+
+
+def _summary(entry) -> str:
+    """The feed's description as plain text: tags stripped, entities unescaped,
+    whitespace collapsed, capped. Empty when the feed has none."""
+    raw = entry.get("summary") or entry.get("description") or ""
+    text = " ".join(html.unescape(_TAG.sub(" ", raw)).split())
+    return text[:SUMMARY_CHARS]
 
 
 class NewsSource(Protocol):
@@ -52,6 +64,7 @@ async def fetch_news(feeds: list[FeedCfg], store: Store, get_text: GetText, max_
                 "headline": entry["title"],
                 "url": entry["link"],
                 "feed": feed.name,
+                "summary": _summary(entry),
                 "published_at": _entry_time(entry),
                 "source": "rss",
             })

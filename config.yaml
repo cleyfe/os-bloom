@@ -55,6 +55,9 @@ series:            # macro click-through charts; transform per changes.apply_tra
 
 comment:           # AI market comment band on the MKT tab (opt-in: needs ANTHROPIC_API_KEY)
   model: claude-opus-5
+  triage_model: claude-haiku-4-5   # scores headlines for market impact before the comment reads any
+  max_articles: 4                  # linked articles the comment may read per run
+  stale_hours: 24                  # older than this: the band hides the text and offers a refresh
 
 cycle_series:      # market-cycle series (spec 2026-08-24); exactly one source key each
   # ---- hidden infrastructure ----

@@ -79,7 +79,10 @@ class CycleTabCfg:
 
 @dataclass(frozen=True)
 class CommentCfg:
-    model: str  # Anthropic model id for the AI market comment
+    model: str                              # Anthropic model id for the AI market comment
+    triage_model: str = "claude-haiku-4-5"  # scores headlines for market impact
+    max_articles: int = 4                   # linked articles the comment may read per run
+    stale_hours: int = 24                   # older than this: hidden in the band, refresh offered
 
 
 @dataclass(frozen=True)

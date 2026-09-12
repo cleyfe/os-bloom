@@ -44,3 +44,18 @@ async def test_all_feeds_dead_raises(tmp_path):
         raise AssertionError("expected RuntimeError")
     except RuntimeError:
         pass
+
+
+async def test_fetch_news_keeps_feed_summary_as_plain_text(tmp_path):
+    store = Store(tmp_path / "t.db")
+
+    async def fake_get(url, params=None):
+        return RSS_XML
+
+    await fetch_news([FeedCfg(name="FT", url="http://a")], store, fake_get, max_items=5)
+    items = store.doc("news").payload["items"]
+    by_headline = {i["headline"]: i for i in items}
+    # tags stripped, entities unescaped, whitespace collapsed
+    assert by_headline["ECB signals pause on rate cuts"]["summary"] == "The ECB held rates & signalled a pause."
+    # a feed item without a description gets an empty summary, never a missing key
+    assert by_headline["Global equities rally on soft inflation print"]["summary"] == ""

@@ -186,6 +186,14 @@ def _comment_panel(store: Store) -> dict:
             "updated_at": doc.updated_at, "source": doc.source}
 
 
+def _news_panel(store: Store) -> dict:
+    """Headlines and links only. The stored items also carry the feed's
+    summary for the AI comment; that never reaches the browser."""
+    panel = _doc_panel(store, "news", "items")
+    panel["items"] = [{k: v for k, v in it.items() if k != "summary"} for it in panel["items"]]
+    return panel
+
+
 def _doc_panel(store: Store, key: str, list_key: str) -> dict:
     doc = store.doc(key)
     if doc is None:
@@ -211,7 +219,7 @@ def build_dashboard(
             "bonds": {"rows": _bond_rows(store),
                       "updated_at": bonds_doc.updated_at if bonds_doc else None,
                       "source": bonds_doc.source if bonds_doc else None},
-            "news": _doc_panel(store, "news", "items"),
+            "news": _news_panel(store),
             "defi": _doc_panel(store, "defi_pools", "rows"),
             "midnight": _doc_panel(store, "midnight_curve", "rows"),
             "morpho": _doc_panel(store, "morpho_markets", "rows"),

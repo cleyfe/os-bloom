@@ -123,3 +123,6 @@ def test_comment_config():
     cfg = load_config(REPO_ROOT / "config.yaml")
     assert cfg.cadences["comment"] == 43200
     assert cfg.comment.model == "claude-opus-5"
+    assert cfg.comment.triage_model == "claude-haiku-4-5"
+    assert cfg.comment.max_articles == 4
+    assert cfg.comment.stale_hours == 24

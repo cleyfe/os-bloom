@@ -263,3 +263,14 @@ def test_comment_panel_degrades_on_bad_payload(tmp_path):
     store.put_doc("market_comment", ["not", "a", "dict"], source="m")
     panel = build_dashboard(store, INDEXES, now=NOW)["panels"]["comment"]
     assert panel["comment"] is None
+
+
+def test_news_panel_strips_summaries(tmp_path):
+    store = Store(tmp_path / "t.db")
+    store.put_doc("news", {"items": [{
+        "headline": "H", "url": "http://x", "feed": "FT", "published_at": "2026-09-12T00:00:00Z",
+        "source": "rss", "summary": "never served to the browser",
+    }]}, source="rss")
+    items = build_dashboard(store, INDEXES, now=NOW)["panels"]["news"]["items"]
+    assert items == [{"headline": "H", "url": "http://x", "feed": "FT",
+                      "published_at": "2026-09-12T00:00:00Z", "source": "rss"}]
