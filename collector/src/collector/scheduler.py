@@ -17,7 +17,7 @@ from apscheduler.schedulers.asyncio import AsyncIOScheduler
 
 from collector.config import Config
 from collector.fetchers.bonds import fetch_bonds
-from collector.fetchers.comment import call_claude, fetch_comment
+from collector.fetchers.comment import call_claude, call_claude_triage, fetch_comment
 from collector.fetchers.cycle import fetch_cycle
 from collector.fetchers.equity import fetch_equity
 from collector.fetchers.fred import fetch_macro_history
@@ -46,7 +46,7 @@ FIRST_RUN_DELAY = {"comment": timedelta(minutes=5)}
 def comment_fetch(cfg: Config, store: Store):
     """The comment job's fetch callable, shared by the scheduler and the
     on-demand refresh endpoint so both run exactly the same thing."""
-    return partial(fetch_comment, cfg, store, call_claude)
+    return partial(fetch_comment, cfg, store, call_claude, call_claude_triage)
 
 
 def register_jobs(
