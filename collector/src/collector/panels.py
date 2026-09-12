@@ -177,9 +177,11 @@ def _cycle_panel(
 
 
 def is_stale(updated_at: str | None, now: datetime, stale_hours: int) -> bool:
+    if updated_at is None:
+        return True
     try:
         written = datetime.fromisoformat(updated_at.replace("Z", "+00:00"))
-    except (AttributeError, ValueError):
+    except ValueError:
         return True
     return now - written > timedelta(hours=stale_hours)
 
@@ -190,6 +192,7 @@ def comment_panel(store: Store, now: datetime, stale_hours: int) -> dict:
     marker all read, so it is decided here rather than in the browser."""
     doc = store.doc("market_comment")
     if doc is None:
+        # Nothing to be stale: consumers must test `comment` before `stale`.
         return {"comment": None, "updated_at": None, "source": None, "stale": False}
     payload = doc.payload if isinstance(doc.payload, dict) else {}
     return {"comment": payload.get("comment"), "updated_at": doc.updated_at,

@@ -214,7 +214,8 @@ def test_refresh_cools_down_after_a_failure_too(tmp_path):
 
     client, store = make_client(tmp_path, refresh)
     store.record_error("comment", "BadRequestError: credit balance too low")
-    assert client.post("/api/comment/refresh").status_code == 429
+    r = client.post("/api/comment/refresh")
+    assert r.status_code == 429 and "try again" in r.json()["detail"]
 
 
 def test_cooldown_remaining():

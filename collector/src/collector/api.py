@@ -1,7 +1,6 @@
 """Read-only JSON API. App factory so tests inject their own store/config."""
 from __future__ import annotations
 
-import asyncio
 from datetime import datetime, timedelta, timezone
 from typing import Awaitable, Callable, Literal
 
@@ -101,13 +100,19 @@ def create_app(store: Store, cfg: Config,
         bands = to_bands(store.points("cycle:usrec"))
         return {"bands": [[a.isoformat(), b.isoformat()] for a, b in bands]}
 
-    refresh_lock = asyncio.Lock()
+    # Not an asyncio.Lock: the background task that would release one only
+    # starts after the response is fully sent, so a client that disconnects
+    # mid-response would leave a lock held forever. A timestamp that expires
+    # after the cooldown window is self-healing and costs nothing.
+    running_since: dict[str, datetime | None] = {"at": None}
 
     @app.post("/api/comment/refresh", status_code=202)
     async def refresh_comment(background: BackgroundTasks) -> dict:
         """Regenerate the AI comment on demand. Guarded so a public deployment
-        cannot be used to spend money: only when the comment is outdated, never
-        concurrently, never more than once per cooldown window."""
+        cannot be used to spend money: only when the comment is outdated, one
+        manual run at a time, never more than once per cooldown window. (The
+        scheduled job is not excluded; twice a day, a collision is one
+        duplicate call at worst, and put_doc upserts.)"""
         if comment_refresh is None:
             raise HTTPException(status_code=503, detail="AI comment is not configured")
         now = datetime.now(timezone.utc)
@@ -117,15 +122,16 @@ def create_app(store: Store, cfg: Config,
         remaining = _cooldown_remaining(store.status("comment"), now)
         if remaining:
             raise HTTPException(status_code=429, detail=f"try again in {remaining}s")
-        if refresh_lock.locked():
+        since = running_since["at"]
+        if since is not None and now - since < REFRESH_COOLDOWN:
             raise HTTPException(status_code=409, detail="refresh already running")
-        await refresh_lock.acquire()  # cannot block: checked above with no await in between
+        running_since["at"] = now  # no await between the check and this: atomic on one loop
 
         async def run() -> None:
             try:
                 await comment_refresh()
             finally:
-                refresh_lock.release()
+                running_since["at"] = None
 
         # Runs after the response is sent, on the same loop. The TestClient
         # runs it before returning, which keeps the tests deterministic.
