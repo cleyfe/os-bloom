@@ -21,13 +21,13 @@ from collector.store import Store
 log = logging.getLogger(__name__)
 
 _TAG = re.compile(r"<[^>]+>")
-SUMMARY_CHARS = 300  # the feed's own blurb, enough for triage; article text is never stored
+SUMMARY_CHARS = 300  # at most this much of the feed's own blurb; never a stored article
 
 
 def _summary(entry) -> str:
     """The feed's description as plain text: tags stripped, entities unescaped,
     whitespace collapsed, capped. Empty when the feed has none."""
-    raw = entry.get("summary") or entry.get("description") or ""
+    raw = str(entry.get("summary") or entry.get("description") or "")
     text = " ".join(html.unescape(_TAG.sub(" ", raw)).split())
     return text[:SUMMARY_CHARS]
 

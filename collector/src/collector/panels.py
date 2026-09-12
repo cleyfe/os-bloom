@@ -200,7 +200,7 @@ def _news_panel(store: Store) -> dict:
     """Headlines and links only. The stored items also carry the feed's
     summary for the AI comment; that never reaches the browser."""
     panel = _doc_panel(store, "news", "items")
-    panel["items"] = [{k: v for k, v in it.items() if k != "summary"} for it in panel["items"]]
+    panel["items"] = [{k: v for k, v in it.items() if k != "summary"} for it in panel["items"] if isinstance(it, dict)]
     return panel
 
 
