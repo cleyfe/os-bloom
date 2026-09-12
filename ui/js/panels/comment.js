@@ -6,12 +6,11 @@ import { fmtAge, isStale } from "../fmt.js";
 const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) =>
   ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
 
-const STALE_MINUTES = 1500; // ~2x the 12h cadence
-
 // Hidden entirely when there is no comment (no key, or no run yet), so an
 // install without ANTHROPIC_API_KEY looks exactly as it did before.
-export function renderComment(panel) {
+export function renderComment(panel, staleMinutes) {
   const el = document.getElementById("panel-comment");
+  if (!el) return;  // stale index.html with new JS during a deploy: skip, don't kill the tick
   const c = panel?.comment ?? null;
   el.classList.toggle("hidden", !c);
   el.closest(".grid").classList.toggle("has-comment", !!c);
@@ -24,5 +23,5 @@ export function renderComment(panel) {
   const meta = el.querySelector(".comment-meta");
   meta.textContent =
     `${(panel.source ?? "—").toUpperCase()} · ${fmtAge(panel.updated_at)} · AI-GENERATED, NOT INVESTMENT ADVICE`;
-  meta.classList.toggle("stale", isStale(panel.updated_at, STALE_MINUTES));
+  meta.classList.toggle("stale", isStale(panel.updated_at, staleMinutes));
 }

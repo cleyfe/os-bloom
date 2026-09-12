@@ -108,17 +108,17 @@ tr.macro-divider td { color: var(--amber); letter-spacing: 2px; font-size: 10px;
 /* AI comment band: first child of the MKT grid, spanning every column. The
    grid only gets the auto+1fr row template while the band is shown, so an
    install without a comment keeps today's single-row layout exactly. */
-.panel.comment { grid-column: 1 / -1; }
+.panel.comment { grid-column: 1 / -1; max-height: 32vh; }
 .grid.has-comment { grid-template-rows: auto minmax(0, 1fr); }
 .comment-body {
-  flex: none; overflow: visible;
+  flex: 0 1 auto; min-height: 0; overflow-y: auto;
   display: grid; grid-template-columns: 1fr 1fr; gap: 6px 24px; padding: 6px 10px 8px;
 }
 .comment-headline { color: var(--amber); font-size: 18px; font-weight: 700; line-height: 1.3; margin-bottom: 4px; }
 .comment-read { line-height: 1.5; }
 .comment-label { color: var(--muted); font-size: 10px; letter-spacing: 2px; margin-bottom: 4px; }
 .comment-drivers { display: flex; flex-wrap: wrap; gap: 4px 14px; }
-.comment-driver { border-left: 2px solid var(--amber); padding-left: 6px; }
+.comment-driver { border-left: 2px solid var(--amber); padding-left: 6px; overflow-wrap: anywhere; }
 .comment-rotation { margin-top: 6px; font-size: 12px; }
 .comment-meta { letter-spacing: 1px; }
 .comment-meta.stale { color: var(--amber); }
@@ -126,6 +126,6 @@ tr.macro-divider td { color: var(--amber); letter-spacing: 2px; font-size: 10px;
 @media (max-width: 1000px) {
   .grid { grid-template-columns: 1fr; grid-auto-rows: minmax(240px, auto); overflow-y: auto; }
   body { height: auto; }
-  .grid.has-comment { grid-template-rows: none; }
+  .grid.has-comment { grid-template-rows: auto; }
   .comment-body { grid-template-columns: 1fr; }
 }
