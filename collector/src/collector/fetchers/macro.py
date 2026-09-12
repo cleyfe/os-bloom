@@ -21,6 +21,7 @@ COUNTRIES = {"USD", "EUR"}
 BASE_SECONDS = 6 * 3600
 RELEASE_DAY_SECONDS = 55 * 60
 HISTORY_DAYS = 30
+ACTUAL_FIELDS = ("actual", "actual_value", "actual_source", "actual_at")  # written by fetchers.actuals
 
 
 def _map_series(country: str, title: str, cal_map: list[CalendarMapEntry]) -> str | None:
@@ -34,7 +35,12 @@ def _merge_history(existing: list[dict], releases: list[dict], now: datetime) ->
     """Upsert releases into history keyed (country, name, time); prune to 30d."""
     by_key = {(r.get("country"), r.get("name"), r.get("time")): r for r in existing}
     for r in releases:
-        by_key[(r["country"], r["name"], r["time"])] = r
+        key = (r["country"], r["name"], r["time"])
+        old = by_key.get(key)
+        # FF never carries an actual; keep the one the actuals job wrote.
+        if old and not r.get("actual") and old.get("actual"):
+            r = {**r, **{k: old[k] for k in ACTUAL_FIELDS if k in old}}
+        by_key[key] = r
     cutoff = now - timedelta(days=HISTORY_DAYS)
     kept = []
     for r in by_key.values():
