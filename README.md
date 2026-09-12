@@ -15,7 +15,7 @@ live upstreams, awkward data, and decisions that have to be defended.
 
 [![License](https://img.shields.io/badge/license-MIT-f5a623?style=flat-square)](LICENSE)
 ![Python](https://img.shields.io/badge/python-3.12+-5f9ea0?style=flat-square)
-![Tests](https://img.shields.io/badge/tests-209%20passing-4c9a2a?style=flat-square)
+![Tests](https://img.shields.io/badge/tests-230%20passing-4c9a2a?style=flat-square)
 ![Paid data sources](https://img.shields.io/badge/paid%20data%20sources-0-f5a623?style=flat-square)
 ![Built AI-first](https://img.shields.io/badge/built-AI--first-8a63d2?style=flat-square)
 
@@ -72,10 +72,13 @@ land — most within a minute, the daily cycle job on its first tick.
 
 **Optional AI comment.** Set `ANTHROPIC_API_KEY` in `.env` and the MKT tab gains
 a short market comment, written twice a day by Claude from the terminal's own
-data and nothing else: headline, regime read, drivers, rotation note. It is
-closed-book, so every comment can be checked against the numbers on screen,
-and it is labelled AI-generated. Without a key nothing changes. Cost is about
-$4 a month at Opus rates.
+data: headline, regime read, drivers, rotation note. Before writing, a cheap
+triage pass picks the handful of headlines that could move markets, and the
+comment reads those articles through Anthropic's fetcher at generation time.
+Nothing but the URLs it read is stored. It is closed-book otherwise, so every
+comment can be checked against the numbers on screen, and it is labelled
+AI-generated. A comment older than a day is hidden behind a REFRESH control.
+Without a key nothing changes. Cost is about $5.50 a month at Opus rates.
 
 Port 8080 already taken? Set `UI_PORT`:
 
@@ -150,7 +153,9 @@ itself to:
   tuned for one instance. Pointing many users at these upstreams through a
   hosted deployment is exactly the abuse the terms exist to prevent.
 - **Headlines are titles and links only**, straight from public RSS. No article
-  text is stored or served.
+  text is stored or served. The optional AI comment reads a few selected
+  linked articles at generation time and records which URLs it read, never
+  their text.
 
 ## Configuration
 
