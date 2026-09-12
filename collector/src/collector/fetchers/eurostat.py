@@ -35,15 +35,27 @@ def parse_jsonstat(text: str) -> list[tuple[date, float]]:
     d = json.loads(text)
     if not isinstance(d, dict) or "value" not in d:
         raise ValueError("eurostat: no value block in response")
-    non_time = [(dim, size) for dim, size in zip(d["id"], d["size"]) if dim != "time"]
+    try:
+        ids, sizes = d["id"], d["size"]
+        index = d["dimension"]["time"]["category"]["index"]
+    except (KeyError, TypeError) as exc:
+        raise ValueError(f"eurostat: response missing {exc}") from exc
+    # JSON-stat allows array forms for both the time index and the values.
+    if isinstance(index, list):
+        index = {period: pos for pos, period in enumerate(index)}
+    values = d["value"]
+    if isinstance(values, list):
+        values = dict(enumerate(values))
+    non_time = [(dim, size) for dim, size in zip(ids, sizes) if dim != "time"]
     extra = [f"{dim}={size}" for dim, size in non_time if size != 1]
     if extra:
         raise ValueError("eurostat query is not a single series: " + ", ".join(extra))
-    # With every other dimension collapsed to one category, the flat value
-    # index is the time position.
-    by_pos = {pos: period for period, pos in d["dimension"]["time"]["category"]["index"].items()}
+    # With every other dimension collapsed to one category, every stride but
+    # time's is a product of ones, so the flat value index is the time position
+    # wherever `time` sits in `id`.
+    by_pos = {pos: period for period, pos in index.items()}
     out = []
-    for flat, value in d["value"].items():
+    for flat, value in values.items():
         if value is None:
             continue
         out.append((period_to_date(by_pos[int(flat)]), float(value)))

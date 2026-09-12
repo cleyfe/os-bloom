@@ -95,11 +95,18 @@ class ActualRuleCfg:
     fmt: str = "pct1"            # pct1 | pct2 | k
     freq: str = "m"              # m | q | d
     lag: int = 1                 # reference periods back (m, q) or days after the decision (d)
+    exclude: list[str] | None = None  # titles containing any of these are not this release ("ADP")
 
     def __post_init__(self) -> None:
         where = f"actuals rule {self.country} {self.match!r}"
         if (self.fred is None) == (self.eurostat is None):
             raise ValueError(f"{where}: exactly one of fred / eurostat")
+        if self.country not in ("USD", "EUR"):
+            raise ValueError(f"{where}: country must be USD or EUR")
+        if self.lag < 0:
+            raise ValueError(f"{where}: lag must be >= 0")
+        if self.exclude is not None and not all(isinstance(x, str) and x for x in self.exclude):
+            raise ValueError(f"{where}: exclude must be a list of non-empty strings")
         if self.calc not in ("level", "pct_prev", "pct_yoy", "diff_k"):
             raise ValueError(f"{where}: unknown calc {self.calc!r}")
         if self.fmt not in ("pct1", "pct2", "k"):

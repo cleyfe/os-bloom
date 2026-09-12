@@ -14,14 +14,16 @@ NOW = datetime(2026, 9, 12, 8, 0, tzinfo=timezone.utc)
 CPI_MM = ActualRuleCfg(country="USD", match="CPI m/m", fred="CPIAUCSL", calc="pct_prev")
 CORE_MM = ActualRuleCfg(country="USD", match="Core CPI m/m", fred="CPILFESL", calc="pct_prev")
 CPI_YY = ActualRuleCfg(country="USD", match="CPI y/y", fred="CPIAUCSL", calc="pct_yoy")
-NFP = ActualRuleCfg(country="USD", match="Non-Farm Employment Change", fred="PAYEMS", calc="diff_k", fmt="k")
+NFP = ActualRuleCfg(country="USD", match="Non-Farm Employment Change", fred="PAYEMS", calc="diff_k", fmt="k",
+                    exclude=["ADP"])
 UNEMP = ActualRuleCfg(country="USD", match="Unemployment Rate", fred="UNRATE")
 GDP = ActualRuleCfg(country="USD", match="GDP q/q", fred="A191RL1Q225SBEA", freq="q")
 FED = ActualRuleCfg(country="USD", match="Federal Funds Rate", fred="DFEDTARU", freq="d", lag=1, fmt="pct2")
 EU_CPI = ActualRuleCfg(country="EUR", match="CPI Flash Estimate y/y",
                        eurostat="prc_hicp_minr?geo=EA21&unit=RCH_A&coicop18=TOTAL")
 EU_UNEMP = ActualRuleCfg(country="EUR", match="Unemployment Rate",
-                         eurostat="une_rt_m?geo=EA21&s_adj=SA&age=TOTAL&sex=T&unit=PC_ACT", lag=2)
+                         eurostat="une_rt_m?geo=EA21&s_adj=SA&age=TOTAL&sex=T&unit=PC_ACT", lag=2,
+                         exclude=["German", "French", "Italian", "Spanish"])
 RULES = [CORE_MM, CPI_MM, CPI_YY, NFP, UNEMP, GDP, FED, EU_CPI, EU_UNEMP]
 
 
@@ -33,6 +35,10 @@ def test_match_rule_is_first_match_within_country():
     assert match_rule("USD", "unemployment rate", RULES) is UNEMP
     assert match_rule("EUR", "ECB Press Conference", RULES) is None
     assert match_rule("GBP", "CPI m/m", RULES) is None
+    assert match_rule("USD", "Non-Farm Employment Change", RULES) is NFP
+    assert match_rule("USD", "ADP Non-Farm Employment Change", RULES) is None       # look-alike, excluded
+    assert match_rule("EUR", "Italian Monthly Unemployment Rate", RULES) is None    # national print, excluded
+    assert match_rule("USD", "Advance GDP Price Index q/q", RULES) is None          # not "GDP q/q"
 
 
 def test_expected_period():
@@ -61,6 +67,20 @@ def test_compute_each_calc():
     assert compute(fed, FED, datetime(2026, 9, 16, 18, 0, tzinfo=timezone.utc)) == 3.5
 
 
+def test_compute_takes_the_newest_observation_in_the_window():
+    """The euro-area flash can land on the last day of its own month: a release
+    dated 2026-08-31 with lag 1 must print August when August is out, July
+    otherwise, and never June."""
+    flash_in_month = datetime(2026, 8, 31, 9, 0, tzinfo=timezone.utc)
+    pts = [(date(2026, 6, 1), 2.0), (date(2026, 7, 1), 3.0), (date(2026, 8, 1), 3.2)]
+    assert compute(pts, EU_CPI, flash_in_month) == 3.2
+    assert compute(pts[:2], EU_CPI, flash_in_month) == 3.0
+    assert compute(pts[:1], EU_CPI, flash_in_month) is None
+    # a monthly print never reaches forward past its own month, or back past lag
+    sep = datetime(2026, 9, 11, tzinfo=timezone.utc)
+    assert compute([(date(2026, 7, 1), 332.0), (date(2026, 10, 1), 999.0)], UNEMP, sep) is None
+
+
 def test_compute_returns_none_until_published():
     aug = datetime(2026, 9, 11, tzinfo=timezone.utc)
     assert compute(CPI_POINTS[:3], CPI_MM, aug) is None              # August not out yet
@@ -82,6 +102,8 @@ def seeded_store(tmp_path):
     store = Store(tmp_path / "t.db")
     rows = [
         {"name": "Core CPI m/m", "country": "USD", "time": "2026-09-11T08:30:00-04:00", "actual": None},
+        {"name": "Non-Farm Employment Change", "country": "USD", "time": "2026-09-04T08:30:00-04:00", "actual": None},
+        {"name": "ADP Non-Farm Employment Change", "country": "USD", "time": "2026-09-02T08:15:00-04:00", "actual": None},
         {"name": "CPI m/m", "country": "USD", "time": "2026-09-11T08:30:00-04:00", "actual": None},
         {"name": "CPI y/y", "country": "USD", "time": "2026-09-11T08:30:00-04:00", "actual": None},
         {"name": "CPI Flash Estimate y/y", "country": "EUR", "time": "2026-09-02T05:00:00-04:00", "actual": None},
@@ -95,8 +117,10 @@ def seeded_store(tmp_path):
     return store
 
 
-def fred_json(points):
-    return json.dumps({"observations": [{"date": d, "value": v} for d, v in points]})
+def fred_json(points, params=None):
+    """A FRED reply that honours observation_start, as the real API does."""
+    start = (params or {}).get("observation_start", "0000-00-00")
+    return json.dumps({"observations": [{"date": d, "value": v} for d, v in points if d >= start]})
 
 
 async def test_fetch_actuals_fills_due_rows_once_per_source(tmp_path):
@@ -107,21 +131,26 @@ async def test_fetch_actuals_fills_due_rows_once_per_source(tmp_path):
     async def fake_get(url, params=None):
         fetched.append(params["series_id"] if url == FRED_BASE else url[len(EUROSTAT_BASE):].split("?")[0])
         if url == FRED_BASE and params["series_id"] == "CPIAUCSL":
-            assert params["observation_start"] == "2025-08-08"   # 400 days before NOW
-            return fred_json([("2025-08-01", "321.5"), ("2026-07-01", "332.813"), ("2026-08-01", "334.131")])
+            assert params["observation_start"] == "2025-03-01"   # 18 months back: the yoy base is inside
+            return fred_json([("2025-08-01", "321.5"), ("2026-07-01", "332.813"), ("2026-08-01", "334.131")], params)
         if url == FRED_BASE and params["series_id"] == "CPILFESL":
-            return fred_json([("2026-07-01", "336.789"), ("2026-08-01", "337.765")])
+            return fred_json([("2026-07-01", "336.789"), ("2026-08-01", "337.765")], params)
+        if url == FRED_BASE and params["series_id"] == "PAYEMS":
+            return fred_json([("2026-07-01", "158913"), ("2026-08-01", "159075")], params)
         if url.startswith(EUROSTAT_BASE + "prc_hicp_minr?"):
             return EUROSTAT_FIXTURE
         raise AssertionError(f"unexpected fetch {url} {params}")
 
     label = await fetch_actuals(RULES, store, fake_get, "key", now=NOW)
     assert label == "fred+eurostat"
-    assert sorted(fetched) == ["CPIAUCSL", "CPILFESL", "prc_hicp_minr"]  # one fetch per source; m/m and y/y share
+    assert sorted(fetched) == ["CPIAUCSL", "CPILFESL", "PAYEMS", "prc_hicp_minr"]  # one per source; m/m and y/y share
     hist = {r["name"]: r for r in store.doc("macro_history").payload["releases"]}
     assert hist["CPI m/m"]["actual"] == "0.4%" and hist["CPI m/m"]["actual_source"] == "fred"
     assert hist["CPI y/y"]["actual"] == "3.9%"
     assert hist["Core CPI m/m"]["actual"] == "0.3%"
+    assert hist["Non-Farm Employment Change"]["actual"] == "162K"        # PAYEMS is already in thousands
+    assert hist["Non-Farm Employment Change"]["actual_value"] == 162.0
+    assert hist["ADP Non-Farm Employment Change"]["actual"] is None       # look-alike title, excluded
     assert hist["CPI Flash Estimate y/y"]["actual"] == "3.2%" and hist["CPI Flash Estimate y/y"]["actual_source"] == "eurostat"
     assert hist["CPI m/m"]["actual_value"] == 0.396 and hist["CPI m/m"]["actual_at"].endswith("Z")
     assert hist["ECB Press Conference"]["actual"] is None     # no rule
@@ -132,6 +161,19 @@ async def test_fetch_actuals_fills_due_rows_once_per_source(tmp_path):
     assert store.doc("macro_calendar").updated_at == calendar_before
     assert all(r["actual"] is None or r["name"] == "Unemployment Rate"
                for r in store.doc("macro_calendar").payload["releases"])
+
+
+async def test_fetch_actuals_skips_naive_times(tmp_path):
+    store = Store(tmp_path / "t.db")
+    store.put_doc("macro_history", {"releases": [
+        {"name": "CPI m/m", "country": "USD", "time": "2026-09-11T08:30:00", "actual": None},
+    ]}, source="forexfactory")
+
+    async def never(url, params=None):
+        raise AssertionError("no fetch expected")
+
+    await fetch_actuals(RULES, store, never, "key", now=NOW)
+    assert store.doc("macro_history").payload["releases"][0]["actual"] is None
 
 
 async def test_fetch_actuals_idle_when_nothing_due(tmp_path):

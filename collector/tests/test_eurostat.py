@@ -68,3 +68,17 @@ async def test_fetch_recent_passes_observation_start():
     assert seen["params"]["observation_start"] == "2025-08-01"
     assert seen["params"]["series_id"] == "CPIAUCSL"
     assert points == [(date(2026, 8, 1), 334.131)]
+
+
+def test_parse_jsonstat_accepts_array_forms():
+    d = json.loads(FIXTURE)
+    index = d["dimension"]["time"]["category"]["index"]
+    periods = sorted(index, key=index.get)
+    d["dimension"]["time"]["category"]["index"] = periods
+    d["value"] = [d["value"][str(i)] for i in range(len(periods))]
+    assert parse_jsonstat(json.dumps(d)) == parse_jsonstat(FIXTURE)
+
+
+def test_parse_jsonstat_reports_missing_metadata_as_value_error():
+    with pytest.raises(ValueError, match="missing"):
+        parse_jsonstat(json.dumps({"value": {"0": 1.0}}))

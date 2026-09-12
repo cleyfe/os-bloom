@@ -192,16 +192,17 @@ calendar_map:      # first match wins — keep Core before CPI
 
 actuals:           # the printed number for a released calendar row, from a free series; first match wins
   # USD from FRED. m/m and y/y share a series; the rule decides the arithmetic.
-  # Reference period: the month `lag` months before the release month (default 1),
-  # the previous quarter for q, or the first observation `lag` days after a decision for d.
+  # Reference period: the newest observation between `lag` periods before the release period and the
+  # release period itself (the euro-area flash can land inside its own month), or for d the first
+  # observation `lag` days after a decision. `exclude` keeps look-alike titles (ADP, national prints) out.
   - { country: USD, match: "Core CPI m/m",              fred: CPILFESL,        calc: pct_prev }
-  - { country: USD, match: "Core CPI y/y",              fred: CPILFESL,        calc: pct_yoy }
+  - { country: USD, match: "Core CPI y/y",              fred: CPILFENS,        calc: pct_yoy }   # y/y is printed NSA
   - { country: USD, match: "CPI m/m",                   fred: CPIAUCSL,        calc: pct_prev }
-  - { country: USD, match: "CPI y/y",                   fred: CPIAUCSL,        calc: pct_yoy }
+  - { country: USD, match: "CPI y/y",                   fred: CPIAUCNS,        calc: pct_yoy }   # y/y is printed NSA
   - { country: USD, match: "Core PPI m/m",              fred: PPIFES,          calc: pct_prev }
   - { country: USD, match: "PPI m/m",                   fred: PPIFIS,          calc: pct_prev }
   - { country: USD, match: "Core PCE Price Index m/m",  fred: PCEPILFE,        calc: pct_prev }
-  - { country: USD, match: "Non-Farm Employment Change", fred: PAYEMS,         calc: diff_k, fmt: k }
+  - { country: USD, match: "Non-Farm Employment Change", fred: PAYEMS,         calc: diff_k, fmt: k, exclude: [ADP] }
   - { country: USD, match: "Unemployment Rate",         fred: UNRATE }
   - { country: USD, match: "GDP q/q",                   fred: A191RL1Q225SBEA, freq: q }   # Advance / Prelim / Final
   - { country: USD, match: "Core Retail Sales m/m",     fred: RSFSXMV,         calc: pct_prev }
@@ -210,8 +211,10 @@ actuals:           # the printed number for a released calendar row, from a free
   # EUR from Eurostat (keyless JSON-stat; datasets re-based in 2026, euro area is EA21) and FRED for the ECB rate.
   - { country: EUR, match: "Core CPI Flash Estimate y/y", eurostat: "prc_hicp_minr?geo=EA21&unit=RCH_A&coicop18=TOT_X_NRG_FOOD" }
   - { country: EUR, match: "CPI Flash Estimate y/y",      eurostat: "prc_hicp_minr?geo=EA21&unit=RCH_A&coicop18=TOTAL" }
-  - { country: EUR, match: "Unemployment Rate",           eurostat: "une_rt_m?geo=EA21&s_adj=SA&age=TOTAL&sex=T&unit=PC_ACT", lag: 2 }
-  - { country: EUR, match: "GDP q/q",                     eurostat: "namq_10_gdp?geo=EA21&unit=CLV_PCH_PRE&s_adj=SCA&na_item=B1GQ", freq: q }
+  - { country: EUR, match: "Unemployment Rate",           eurostat: "une_rt_m?geo=EA21&s_adj=SA&age=TOTAL&sex=T&unit=PC_ACT", lag: 2,
+      exclude: [German, French, Italian, Spanish] }
+  - { country: EUR, match: "GDP q/q",                     eurostat: "namq_10_gdp?geo=EA21&unit=CLV_PCH_PRE&s_adj=SCA&na_item=B1GQ", freq: q,
+      exclude: [German, French, Italian, Spanish] }
   - { country: EUR, match: "Main Refinancing Rate",       fred: ECBMRRFR, freq: d, lag: 6, fmt: pct2 }  # effective the following week
 
 feeds:             # RSS bundle; a dead feed is skipped silently

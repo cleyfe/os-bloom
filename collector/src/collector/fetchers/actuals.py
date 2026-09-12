@@ -22,14 +22,20 @@ from collector.store import Store
 
 log = logging.getLogger(__name__)
 
-FRED_LOOKBACK = timedelta(days=400)   # enough for a yoy change on monthly data
-EUROSTAT_LOOKBACK_MONTHS = 18
+# 13 months back reaches the yoy base of a monthly print from any release day;
+# 18 leaves room for a quarterly one. Month-based so the window never lands a
+# few days past the first-of-month observation it needs.
+LOOKBACK_MONTHS = 18
 
 
 def match_rule(country: str, title: str, rules: list[ActualRuleCfg]) -> ActualRuleCfg | None:
+    t = title.lower()
     for rule in rules:
-        if rule.country == country and rule.match.lower() in title.lower():
-            return rule
+        if rule.country != country or rule.match.lower() not in t:
+            continue
+        if any(x.lower() in t for x in (rule.exclude or [])):
+            continue  # "ADP Non-Farm Employment Change" is not the BLS print
+        return rule
     return None
 
 
@@ -42,14 +48,22 @@ def _months_back(d: date, months: int) -> date:
     return date(year, month, 1)
 
 
+def _release_period(d: date, freq: str) -> date:
+    """The period the release itself falls in: its month, or its quarter's first month."""
+    return _months_back(d, (d.month - 1) % 3) if freq == "q" else _months_back(d, 0)
+
+
 def expected_period(release_time: datetime, rule: ActualRuleCfg) -> date:
-    """The observation date that is this release's print."""
+    """The earliest observation date that can be this release's print. Together
+    with the release's own period it bounds the window compute() searches: a
+    release normally reports `lag` periods back, but the euro-area flash can
+    land inside its own month, so the newest observation in the window wins
+    and anything older than the window is never mistaken for the print."""
     d = release_time.date()
     if rule.freq == "d":
         return d + timedelta(days=rule.lag)
     if rule.freq == "q":
-        quarter_start = _months_back(d, (d.month - 1) % 3)
-        return _months_back(quarter_start, 3 * rule.lag)
+        return _months_back(_release_period(d, "q"), 3 * rule.lag)
     return _months_back(d, rule.lag)
 
 
@@ -65,8 +79,11 @@ def compute(points: list[tuple[date, float]], rule: ActualRuleCfg,
         hit = next(((d, v) for d, v in pts if d >= period), None)
         return hit[1] if hit else None
     by_date = dict(pts)
-    if period not in by_date:
+    latest = _release_period(release_time.date(), rule.freq)
+    window = [d for d in by_date if period <= d <= latest]
+    if not window:
         return None
+    period = max(window)
     value = by_date[period]
     if rule.calc == "level":
         return value
@@ -111,9 +128,9 @@ def _due(rows: list[dict], rules: list[ActualRuleCfg], now: datetime) -> list[tu
             continue
         try:
             t = datetime.fromisoformat(r["time"])
-        except (KeyError, TypeError, ValueError):  # "TBD" rows never have a print
-            continue
-        if t > now:
+            if t > now:
+                continue
+        except (KeyError, TypeError, ValueError):  # "TBD" or naive times never have a print
             continue
         rule = match_rule(str(r.get("country", "")), str(r.get("name", "")), rules)
         if rule is not None:
@@ -123,17 +140,17 @@ def _due(rows: list[dict], rules: list[ActualRuleCfg], now: datetime) -> list[tu
 
 async def _fetch(kind: str, ident: str, freq: str, get_text: GetText, fred_api_key: str,
                  now: datetime) -> list[tuple[date, float]]:
+    since = _months_back(now.date(), LOOKBACK_MONTHS)
     if kind == "fred":
-        return await fetch_recent(ident, fred_api_key, get_text, since=(now - FRED_LOOKBACK).date())
-    return await fetch_eurostat(ident, get_text, since=_months_back(now.date(), EUROSTAT_LOOKBACK_MONTHS),
-                                freq=freq)
+        return await fetch_recent(ident, fred_api_key, get_text, since=since)
+    return await fetch_eurostat(ident, get_text, since=since, freq=freq)
 
 
 async def fetch_actuals(rules: list[ActualRuleCfg], store: Store, get_text: GetText,
                         fred_api_key: str, now: datetime | None = None) -> str:
     """The ten-minute job. Idle unless a released row still lacks its actual;
     then one fetch per distinct source, and every hit is written at once."""
-    now = now or datetime.now(timezone.utc)
+    now = (now or datetime.now(timezone.utc)).astimezone(timezone.utc)
     hist = store.doc("macro_history")
     rows = list(hist.payload.get("releases", [])) if hist and isinstance(hist.payload, dict) else []
     due = _due(rows, rules, now)
@@ -153,6 +170,8 @@ async def fetch_actuals(rules: list[ActualRuleCfg], store: Store, get_text: GetT
     for row, t, rule in due:
         points = series.get((*_source(rule), rule.freq))
         if not points:
+            if points == []:
+                log.warning("actuals: %s %s returned no observations", *_source(rule))
             continue
         try:
             value = compute(points, rule, t)
