@@ -238,3 +238,17 @@ def test_cycle_panel_applies_transform(tmp_path):
     ])]
     dash = build_dashboard(store, INDEXES, now=NOW, cycle_series=series, cycle_tabs=tabs)
     assert dash["panels"]["cycle"]["tabs"][0]["panels"][0]["rows"][0]["value"] == 10.0
+
+
+def test_comment_panel_empty_and_populated(tmp_path):
+    store = Store(tmp_path / "t.db")
+    dash = build_dashboard(store, INDEXES, now=NOW)
+    assert dash["panels"]["comment"] == {"comment": None, "updated_at": None, "source": None}
+    store.put_doc("market_comment", {
+        "comment": {"headline": "H"}, "snapshot_as_of": "x", "model": "claude-opus-5",
+    }, source="claude-opus-5")
+    dash = build_dashboard(store, INDEXES, now=NOW)
+    panel = dash["panels"]["comment"]
+    assert panel["comment"]["headline"] == "H"
+    assert panel["source"] == "claude-opus-5"
+    assert panel["updated_at"] is not None

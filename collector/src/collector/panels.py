@@ -176,6 +176,15 @@ def _cycle_panel(
             "source": "cycle"}
 
 
+def _comment_panel(store: Store) -> dict:
+    """AI market comment; `comment` is None until the first successful run."""
+    doc = store.doc("market_comment")
+    if doc is None:
+        return {"comment": None, "updated_at": None, "source": None}
+    return {"comment": doc.payload.get("comment"),
+            "updated_at": doc.updated_at, "source": doc.source}
+
+
 def _doc_panel(store: Store, key: str, list_key: str) -> dict:
     doc = store.doc(key)
     if doc is None:
@@ -207,5 +216,6 @@ def build_dashboard(
             "morpho": _doc_panel(store, "morpho_markets", "rows"),
             "refs": _refs_panel(store),
             "cycle": _cycle_panel(store, list(cycle_series), list(cycle_tabs)),
+            "comment": _comment_panel(store),
         },
     }

@@ -21,6 +21,7 @@ def test_dashboard_shape_on_empty_store(tmp_path):
     body = client.get("/api/dashboard").json()
     assert set(body["panels"].keys()) == {
         "macro", "equity", "bonds", "news", "defi", "midnight", "morpho", "refs", "cycle",
+        "comment",
     }
     assert [t["id"] for t in body["panels"]["cycle"]["tabs"]] == [
         "risk", "econ", "credit", "profit", "pos",
