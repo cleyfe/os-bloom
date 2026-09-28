@@ -26,7 +26,7 @@ def parse_series(text: str) -> list[tuple[date, float]]:
     doc = docs[0]
     out = []
     for period, value in zip(doc.get("period") or [], doc.get("value") or []):
-        if value is None:
+        if value is None or value == "NA":  # ONS series carry "NA" for old gaps
             continue
         out.append((_parse_period(period), float(value)))
     if not out:

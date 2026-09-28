@@ -15,6 +15,12 @@ def test_parse_series_monthly_periods_and_null_skip():
     ]
 
 
+def test_parse_series_skips_na_string():
+    # ONS series (e.g. UK CPI y/y) carry the string "NA" for old gaps, not null
+    text = '{"series": {"docs": [{"period": ["2026-05", "2026-06", "2026-07"], "value": ["NA", 3.1, "NA"]}]}}'
+    assert parse_series(text) == [(date(2026, 6, 1), 3.1)]
+
+
 def test_parse_series_daily_periods():
     text = '{"series": {"docs": [{"period": ["2026-07-15"], "value": [1.5]}]}}'
     assert parse_series(text) == [(date(2026, 7, 15), 1.5)]
