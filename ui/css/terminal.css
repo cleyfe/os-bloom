@@ -21,7 +21,7 @@ header {
   flex: 1; min-height: 0; display: grid; gap: 8px; padding: 8px;
   grid-template-columns: 4fr 3fr 3fr;
 }
-.col-left { display: grid; grid-template-rows: 3fr 2fr; gap: 8px; min-height: 0; }
+.col-left { display: grid; grid-template-rows: 3fr auto 2fr; gap: 8px; min-height: 0; }
 .panel {
   background: var(--panel); border: 1px solid var(--line);
   display: flex; flex-direction: column; min-height: 0;

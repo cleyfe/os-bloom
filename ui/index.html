@@ -15,6 +15,7 @@
   </header>
   <nav class="tab-row">
     <a href="#/mkt" data-tab-link="mkt">MKT</a>
+    <a href="#/sectors" data-tab-link="sectors">SECTORS</a>
     <a href="#/defi" data-tab-link="defi">DEFI</a>
     <a href="#/risk" data-tab-link="risk">RISK</a>
     <a href="#/econ" data-tab-link="econ">ECON</a>
@@ -34,6 +35,11 @@
         <div class="panel-body"></div>
         <div class="panel-foot muted"></div>
       </div>
+      <div class="panel" id="panel-fx">
+        <div class="panel-title">CURRENCIES</div>
+        <div class="panel-body"></div>
+        <div class="panel-foot muted"></div>
+      </div>
     </section>
     <section class="panel" id="panel-macro">
       <div class="panel-title">MACRO — THIS WEEK</div>
@@ -46,6 +52,7 @@
       <div class="panel-foot muted"></div>
     </section>
   </main>
+  <main class="grid grid-cycle hidden" data-tab="sectors" id="sectors-grid"></main>
   <main class="grid grid-defi hidden" data-tab="defi">
     <section class="panel" id="panel-defi">
       <div class="panel-title"><span id="defi-view-title">CURATED VAULTS — USDC</span><span class="view-toggle"><a data-view="vaults" class="active">VAULTS</a><a data-view="markets">MARKETS</a></span></div>

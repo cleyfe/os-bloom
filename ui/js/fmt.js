@@ -1,6 +1,13 @@
 export const fmtNum = (x) =>
   x == null ? "—" : x.toLocaleString("en-US", { minimumFractionDigits: 1, maximumFractionDigits: 1 });
 
+// FX pairs read more precisely below parity (e.g. EURUSD) than above it (e.g. USDJPY).
+export const fmtFx = (x) => {
+  if (x == null) return "—";
+  const digits = Math.abs(x) < 10 ? 4 : 2;
+  return x.toLocaleString("en-US", { minimumFractionDigits: digits, maximumFractionDigits: digits });
+};
+
 const signed = (x, suffix, digits) => ({
   text: x == null ? "—" : `${x > 0 ? "+" : ""}${x.toFixed(digits)}${suffix}`,
   cls: x == null || x === 0 ? "flat" : x > 0 ? "up" : "down",
