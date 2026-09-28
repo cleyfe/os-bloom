@@ -111,7 +111,7 @@ def test_cycle_config():
     assert by_id["vix"].transform == "none"  # default
     assert by_id["ea-esi"].eurostat == "ei_bssi_m_r2?geo=EA21&s_adj=SA&indic=BS-ESI-I"
     assert by_id["uk-gdp-yoy"].dbnomics == "ONS/MGDP/ECY2.M" and by_id["uk-gdp-yoy"].transform == "yoy"
-    assert by_id["uk-unemployment"].fred == "LRHUTTTTGBM156S"
+    assert by_id["uk-unemployment"].dbnomics == "ONS/LMS/MGSX.M"
     # every source entry has exactly one source key
     for s in cfg.cycle_series:
         sources = [s.fred, s.dbnomics, s.oecd, s.eurostat, s.cftc, s.cboe, s.aaii, s.yahoo_ratio]

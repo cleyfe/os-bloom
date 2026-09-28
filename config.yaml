@@ -150,7 +150,7 @@ cycle_series:      # market-cycle series (spec 2026-08-24); exactly one source k
   - { id: ea-retail-conf,name: "EA retail confidence",      unit: bal, eurostat: "ei_bssi_m_r2?geo=EA21&s_adj=SA&indic=BS-RCI-BAL" }
   - { id: ea-core-hicp,  name: "EA core HICP YoY",          unit: "%", eurostat: "prc_hicp_minr?geo=EA21&unit=RCH_A&coicop18=TOT_X_NRG_FOOD" }
   # ---- ECON: UK ----
-  - { id: uk-unemployment, name: "UK unemployment rate",    unit: "%", fred: LRHUTTTTGBM156S }
+  - { id: uk-unemployment, name: "UK unemployment rate",    unit: "%", dbnomics: "ONS/LMS/MGSX.M" }  # ONS direct; the FRED/OECD copy lags a month
   - { id: uk-retail-yoy,   name: "UK retail sales YoY",     unit: "%", fred: GBRSLRTTO01GYSAM }
   - { id: uk-gdp-yoy,      name: "UK monthly GDP YoY",      unit: "%", dbnomics: "ONS/MGDP/ECY2.M", transform: yoy }
   - { id: uk-cpi-yoy,      name: "UK CPI YoY",              unit: "%", dbnomics: "ONS/MM23/D7G7.M" }
