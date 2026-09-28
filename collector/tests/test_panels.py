@@ -1,11 +1,15 @@
 from datetime import date, datetime, timedelta, timezone
 
-from collector.config import IndexCfg
+from collector.config import IndexCfg, SectorGroupCfg
 from collector.panels import build_dashboard
 from collector.store import Store
 
 NOW = datetime(2026, 7, 8, 14, 30, tzinfo=timezone.utc)
 INDEXES = [IndexCfg(symbol="SPX", name="S&P 500", yahoo="^GSPC")]
+FX = [IndexCfg(symbol="EURUSD", name="EUR/USD", yahoo="EURUSD=X")]
+SECTORS = [SectorGroupCfg(title="US SECTORS", note="SPDR", rows=[
+    IndexCfg(symbol="XLK", name="Technology", yahoo="XLK"),
+])]
 
 # rate_refs rows have no per-row 'ts' (unlike bond/equity quotes); the panel
 # anchors asof to the doc's own updated_at, which store.put_doc always stamps
@@ -88,6 +92,18 @@ def seeded_store(tmp_path) -> Store:
         {"id": "aave-base-usdc-borrow", "label": "AAVE BORROW", "value_pct": 3.88,
          "extra": None},  # no ref: series seeded -- exercises the "no history yet" case
     ]}, source="refs")
+    store.upsert_points("fx:EURUSD", [
+        (date(2026, 7, 7), 1.0800), (date(2026, 7, 8), 1.0850),
+    ])
+    store.put_doc("fx_quotes", {"EURUSD": {
+        "last": 1.0850, "ts": "2026-07-08T14:00:00Z", "source": "yahoo", "delayed": True,
+    }}, source="yahoo")
+    store.upsert_points("sec:XLK", [
+        (date(2026, 7, 7), 240.0), (date(2026, 7, 8), 242.0),
+    ])
+    store.put_doc("sector_quotes", {"XLK": {
+        "last": 242.0, "ts": "2026-07-08T14:00:00Z", "source": "yahoo", "delayed": True,
+    }}, source="yahoo")
     return store
 
 
@@ -145,6 +161,28 @@ def test_build_dashboard_full_shape(tmp_path):
     assert borrow["chg_1w_bp"] is None
 
 
+def test_build_dashboard_fx_and_sectors_panels(tmp_path):
+    dash = build_dashboard(seeded_store(tmp_path), INDEXES, now=NOW, fx=FX, sectors=SECTORS)
+    fx = dash["panels"]["fx"]
+    assert fx["rows"][0]["symbol"] == "EURUSD" and fx["rows"][0]["name"] == "EUR/USD"
+    assert fx["rows"][0]["last"] == 1.0850
+    assert fx["rows"][0]["chg_1d"] is not None
+    assert fx["updated_at"] and fx["source"] == "yahoo"
+
+    sectors = dash["panels"]["sectors"]
+    assert len(sectors["groups"]) == 1
+    group = sectors["groups"][0]
+    assert group["title"] == "US SECTORS" and group["note"] == "SPDR"
+    assert group["rows"][0]["symbol"] == "XLK" and group["rows"][0]["name"] == "Technology"
+    assert sectors["updated_at"] and sectors["source"] == "yahoo"
+
+
+def test_build_dashboard_fx_and_sectors_default_empty(tmp_path):
+    dash = build_dashboard(Store(tmp_path / "t.db"), INDEXES, now=NOW)
+    assert dash["panels"]["fx"] == {"rows": [], "updated_at": None, "source": None}
+    assert dash["panels"]["sectors"] == {"groups": [], "updated_at": None, "source": None}
+
+
 def test_build_dashboard_empty_store(tmp_path):
     dash = build_dashboard(Store(tmp_path / "t.db"), INDEXES, now=NOW)
     assert dash["panels"]["equity"]["rows"] == []
@@ -156,6 +194,8 @@ def test_build_dashboard_empty_store(tmp_path):
     assert dash["panels"]["midnight"]["rows"] == []
     assert dash["panels"]["morpho"]["rows"] == []
     assert dash["panels"]["refs"] == {"rows": [], "updated_at": None, "source": None}
+    assert dash["panels"]["fx"] == {"rows": [], "updated_at": None, "source": None}
+    assert dash["panels"]["sectors"] == {"groups": [], "updated_at": None, "source": None}
 
 
 def test_malformed_equity_quote_skipped_not_500(tmp_path):

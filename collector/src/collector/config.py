@@ -16,6 +16,13 @@ class IndexCfg:
 
 
 @dataclass(frozen=True)
+class SectorGroupCfg:
+    title: str
+    rows: list[IndexCfg]
+    note: str = ""
+
+
+@dataclass(frozen=True)
 class BondCfg:
     country: str
     tenor: str
@@ -210,6 +217,8 @@ class Config:
     max_news: int
     cadences: dict[str, int]
     indexes: list[IndexCfg]
+    fx: list[IndexCfg]
+    sectors: list[SectorGroupCfg]
     bonds: list[BondCfg]
     cb_rates: list[CbRateCfg]
     series: list[SeriesCfg]
@@ -224,14 +233,42 @@ class Config:
     refs: RefsCfg
 
 
+def _duplicate_symbol(symbols: list[str]) -> str | None:
+    seen: set[str] = set()
+    for s in symbols:
+        if s in seen:
+            return s
+        seen.add(s)
+    return None
+
+
 def load_config(path: str | Path) -> Config:
     raw = yaml.safe_load(Path(path).read_text())
+    indexes = [IndexCfg(**i) for i in raw["indexes"]]
+    fx = [IndexCfg(**i) for i in raw.get("fx") or []]
+    sectors = [
+        SectorGroupCfg(
+            title=g["title"], note=g.get("note", ""),
+            rows=[IndexCfg(**r) for r in g["rows"]],
+        )
+        for g in raw.get("sectors") or []
+    ]
+    all_symbols = (
+        [i.symbol for i in indexes]
+        + [i.symbol for i in fx]
+        + [r.symbol for g in sectors for r in g.rows]
+    )
+    dup = _duplicate_symbol(all_symbols)
+    if dup is not None:
+        raise ValueError(f"duplicate symbol across indexes/fx/sectors: {dup!r}")
     return Config(
         db_path=os.environ.get("DB_PATH", raw["db_path"]),
         calendar_url=raw["calendar_url"],
         max_news=raw["max_news"],
         cadences=dict(raw["cadences"]),
-        indexes=[IndexCfg(**i) for i in raw["indexes"]],
+        indexes=indexes,
+        fx=fx,
+        sectors=sectors,
         bonds=[BondCfg(**b) for b in raw["bonds"]],
         cb_rates=[CbRateCfg(**c) for c in raw["cb_rates"]],
         series=[SeriesCfg(**s) for s in raw["series"]],

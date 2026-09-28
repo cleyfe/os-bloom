@@ -29,6 +29,8 @@ def create_app(store: Store, cfg: Config) -> FastAPI:
     series_by_id = {s.id: s for s in cfg.series}
     cycle_by_id = {s.id: s for s in cfg.cycle_series}
     index_names = {i.symbol: i.name for i in cfg.indexes}
+    fx_names = {i.symbol: i.name for i in cfg.fx}
+    sector_names = {r.symbol: r.name for g in cfg.sectors for r in g.rows}
     bond_names = {f"{b.country}{b.tenor}": f"{b.country} {b.tenor} yield" for b in cfg.bonds}
     cb_names = {f"{c.country}CB": c.label for c in cfg.cb_rates}
     ref_labels = {}
@@ -44,7 +46,8 @@ def create_app(store: Store, cfg: Config) -> FastAPI:
     @app.get("/api/dashboard")
     def dashboard() -> dict:
         return build_dashboard(store, cfg.indexes, now=datetime.now(timezone.utc),
-                               cycle_series=cfg.cycle_series, cycle_tabs=cfg.cycle_tabs)
+                               cycle_series=cfg.cycle_series, cycle_tabs=cfg.cycle_tabs,
+                               fx=cfg.fx, sectors=cfg.sectors)
 
     @app.get("/api/series/{series_id}")
     def series(series_id: str, range: Literal["1y", "5y", "10y", "max"] = "10y") -> dict:
@@ -62,6 +65,12 @@ def create_app(store: Store, cfg: Config) -> FastAPI:
         elif series_id in index_names:
             points = store.points(f"idx:{series_id}")
             name, unit = index_names[series_id], "px"
+        elif series_id in fx_names:
+            points = store.points(f"fx:{series_id}")
+            name, unit = fx_names[series_id], "px"
+        elif series_id in sector_names:
+            points = store.points(f"sec:{series_id}")
+            name, unit = sector_names[series_id], "px"
         elif series_id in bond_names:
             points = store.points(f"yield:{series_id}")
             name, unit = bond_names[series_id], "%"

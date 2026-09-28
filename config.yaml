@@ -14,6 +14,8 @@ cadences:          # seconds between fetcher runs
   morpho: 900
   cycle: 86400   # daily; weekly sources just re-upsert (idempotent)
   actuals: 600   # every 10 min; only calls a source when a released row still lacks its actual
+  fx: 300
+  sectors: 900
 
 indexes:           # all served by yahoo
   - { symbol: SPX,  name: "S&P 500",       yahoo: "^GSPC" }
@@ -26,6 +28,57 @@ indexes:           # all served by yahoo
   - { symbol: SMI,  name: "SMI",           yahoo: "^SSMI" }   # validate-in-smoke
   - { symbol: NKX,  name: "Nikkei 225",    yahoo: "^N225" }
   - { symbol: HSI,  name: "Hang Seng",     yahoo: "^HSI" }   # validate-in-smoke
+
+fx:                # MKT tab CURRENCIES panel; served by yahoo
+  - { symbol: DXY,    name: "US Dollar Index", yahoo: "DX-Y.NYB" }
+  - { symbol: EURUSD, name: "EUR/USD", yahoo: "EURUSD=X" }
+  - { symbol: GBPUSD, name: "GBP/USD", yahoo: "GBPUSD=X" }
+  - { symbol: USDJPY, name: "USD/JPY", yahoo: "USDJPY=X" }
+  - { symbol: USDCHF, name: "USD/CHF", yahoo: "USDCHF=X" }
+  - { symbol: AUDUSD, name: "AUD/USD", yahoo: "AUDUSD=X" }
+  - { symbol: USDCAD, name: "USD/CAD", yahoo: "USDCAD=X" }
+  - { symbol: USDCNH, name: "USD/CNH", yahoo: "USDCNH=X" }
+  - { symbol: EURGBP, name: "EUR/GBP", yahoo: "EURGBP=X" }
+  - { symbol: EURCHF, name: "EUR/CHF", yahoo: "EURCHF=X" }
+  - { symbol: EURJPY, name: "EUR/JPY", yahoo: "EURJPY=X" }
+
+sectors:           # SECTORS tab, one panel per group; served by yahoo
+  - title: US SECTORS
+    note: SPDR select sector funds
+    rows:
+      - { symbol: XLK,  name: "Technology",             yahoo: XLK }
+      - { symbol: XLC,  name: "Communication Services", yahoo: XLC }
+      - { symbol: XLY,  name: "Consumer Discretionary", yahoo: XLY }
+      - { symbol: XLP,  name: "Consumer Staples",       yahoo: XLP }
+      - { symbol: XLE,  name: "Energy",                 yahoo: XLE }
+      - { symbol: XLF,  name: "Financials",             yahoo: XLF }
+      - { symbol: XLV,  name: "Health Care",            yahoo: XLV }
+      - { symbol: XLI,  name: "Industrials",            yahoo: XLI }
+      - { symbol: XLB,  name: "Materials",              yahoo: XLB }
+      - { symbol: XLRE, name: "Real Estate",            yahoo: XLRE }
+      - { symbol: XLU,  name: "Utilities",              yahoo: XLU }
+  - title: EUROPE SECTORS
+    note: iShares STOXX Europe 600 sector ETFs, Xetra, EUR
+    rows:
+      - { symbol: EXV3, name: "Technology",                  yahoo: EXV3.DE }
+      - { symbol: EXV2, name: "Telecommunications",          yahoo: EXV2.DE }
+      - { symbol: EXH6, name: "Media",                       yahoo: EXH6.DE }
+      - { symbol: EXV5, name: "Automobiles & Parts",         yahoo: EXV5.DE }
+      - { symbol: EXV9, name: "Travel & Leisure",            yahoo: EXV9.DE }
+      - { symbol: EXH8, name: "Retail",                      yahoo: EXH8.DE }
+      - { symbol: EXH7, name: "Personal & Household Goods",  yahoo: EXH7.DE }
+      - { symbol: EXH3, name: "Food & Beverage",             yahoo: EXH3.DE }
+      - { symbol: EXH1, name: "Oil & Gas",                   yahoo: EXH1.DE }
+      - { symbol: EXV1, name: "Banks",                       yahoo: EXV1.DE }
+      - { symbol: EXH5, name: "Insurance",                   yahoo: EXH5.DE }
+      - { symbol: EXH2, name: "Financial Services",          yahoo: EXH2.DE }
+      - { symbol: EXV4, name: "Health Care",                 yahoo: EXV4.DE }
+      - { symbol: EXH4, name: "Industrial Goods & Services", yahoo: EXH4.DE }
+      - { symbol: EXV8, name: "Construction & Materials",    yahoo: EXV8.DE }
+      - { symbol: EXV7, name: "Chemicals",                   yahoo: EXV7.DE }
+      - { symbol: EXV6, name: "Basic Resources",             yahoo: EXV6.DE }
+      - { symbol: EXI5, name: "Real Estate",                 yahoo: EXI5.DE }
+      - { symbol: EXH9, name: "Utilities",                   yahoo: EXH9.DE }
 
 bonds:
   - { country: US, tenor: 10Y, fred: DGS10 }

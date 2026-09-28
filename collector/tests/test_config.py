@@ -147,6 +147,63 @@ def test_actuals_rules():
     assert fed.freq == "d" and fed.fmt == "pct2" and fed.lag == 1
 
 
+def test_fx_and_sectors_config():
+    cfg = load_config(REPO_ROOT / "config.yaml")
+    assert len(cfg.fx) == 11
+    dxy = cfg.fx[0]
+    assert (dxy.symbol, dxy.name, dxy.yahoo) == ("DXY", "US Dollar Index", "DX-Y.NYB")
+    eurusd = next(f for f in cfg.fx if f.symbol == "EURUSD")
+    assert eurusd.yahoo == "EURUSD=X"
+    assert cfg.cadences["fx"] == 300
+
+    assert len(cfg.sectors) == 2
+    us, eu = cfg.sectors
+    assert us.title == "US SECTORS" and len(us.rows) == 11
+    assert us.rows[0].symbol == "XLK" and us.rows[0].yahoo == "XLK"
+    assert eu.title == "EUROPE SECTORS" and len(eu.rows) == 19
+    assert eu.rows[0].symbol == "EXV3" and eu.rows[0].yahoo == "EXV3.DE"
+    assert cfg.cadences["sectors"] == 900
+
+
+def test_config_without_fx_sectors_keys_defaults_empty(tmp_path):
+    import yaml
+
+    raw = yaml.safe_load((REPO_ROOT / "config.yaml").read_text())
+    raw.pop("fx", None)
+    raw.pop("sectors", None)
+    p = tmp_path / "config.yaml"
+    p.write_text(yaml.safe_dump(raw))
+    cfg = load_config(p)
+    assert cfg.fx == []
+    assert cfg.sectors == []
+
+
+def test_duplicate_symbol_across_indexes_and_fx_raises(tmp_path):
+    import yaml
+
+    import pytest
+
+    raw = yaml.safe_load((REPO_ROOT / "config.yaml").read_text())
+    raw["fx"].append({"symbol": "SPX", "name": "dup", "yahoo": "SPX=X"})
+    p = tmp_path / "config.yaml"
+    p.write_text(yaml.safe_dump(raw))
+    with pytest.raises(ValueError):
+        load_config(p)
+
+
+def test_duplicate_symbol_across_fx_and_sectors_raises(tmp_path):
+    import yaml
+
+    import pytest
+
+    raw = yaml.safe_load((REPO_ROOT / "config.yaml").read_text())
+    raw["sectors"][0]["rows"].append({"symbol": "EURUSD", "name": "dup", "yahoo": "EURUSD=X"})
+    p = tmp_path / "config.yaml"
+    p.write_text(yaml.safe_dump(raw))
+    with pytest.raises(ValueError):
+        load_config(p)
+
+
 def test_actuals_rule_rejects_ambiguous_source():
     import pytest
 

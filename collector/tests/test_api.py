@@ -21,6 +21,7 @@ def test_dashboard_shape_on_empty_store(tmp_path):
     body = client.get("/api/dashboard").json()
     assert set(body["panels"].keys()) == {
         "macro", "equity", "bonds", "news", "defi", "midnight", "morpho", "refs", "cycle",
+        "fx", "sectors",
     }
     assert [t["id"] for t in body["panels"]["cycle"]["tabs"]] == [
         "risk", "econ", "credit", "profit", "pos",
@@ -88,6 +89,31 @@ def test_series_endpoint_serves_bond_and_cb_ids(tmp_path):
     cb = client.get("/api/series/USCB?range=max").json()
     assert cb["name"] == "FED" and cb["points"] == [["2026-07-08", 3.75]]
     assert client.get("/api/series/JP10Y").status_code == 404  # not in config
+
+
+def test_series_endpoint_serves_fx_symbol(tmp_path):
+    client, store = make_client(tmp_path)
+    store.upsert_points("fx:EURUSD", [
+        (date(2026, 7, 1), 1.0800), (date(2026, 7, 8), 1.0850),
+    ])
+    body = client.get("/api/series/EURUSD?range=max").json()
+    assert body["name"] == "EUR/USD" and body["unit"] == "px"
+    assert body["points"] == [["2026-07-01", 1.0800], ["2026-07-08", 1.0850]]
+
+
+def test_series_endpoint_serves_sector_symbol(tmp_path):
+    client, store = make_client(tmp_path)
+    store.upsert_points("sec:XLK", [
+        (date(2026, 7, 1), 240.0), (date(2026, 7, 8), 242.0),
+    ])
+    body = client.get("/api/series/XLK?range=max").json()
+    assert body["name"] == "Technology" and body["unit"] == "px"
+    assert body["points"] == [["2026-07-01", 240.0], ["2026-07-08", 242.0]]
+
+
+def test_series_endpoint_unknown_fx_sector_id_still_404(tmp_path):
+    client, _ = make_client(tmp_path)
+    assert client.get("/api/series/NOTAFXPAIR").status_code == 404
 
 
 def test_series_bad_range_422(tmp_path):
