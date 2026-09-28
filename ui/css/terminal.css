@@ -21,7 +21,8 @@ header {
   flex: 1; min-height: 0; display: grid; gap: 8px; padding: 8px;
   grid-template-columns: 4fr 3fr 3fr;
 }
-.col-left { display: grid; grid-template-rows: 3fr auto 2fr; gap: 8px; min-height: 0; }
+.col-left { display: grid; grid-template-rows: 3fr 2fr; gap: 8px; min-height: 0; }
+.col-mid { display: grid; grid-template-rows: 3fr 2fr; gap: 8px; min-height: 0; }  /* MACRO over CURRENCIES */
 .panel {
   background: var(--panel); border: 1px solid var(--line);
   display: flex; flex-direction: column; min-height: 0;
@@ -108,5 +109,5 @@ tr.macro-divider td { color: var(--amber); letter-spacing: 2px; font-size: 10px;
 @media (max-width: 1000px) {
   .grid { grid-template-columns: 1fr; grid-auto-rows: minmax(240px, auto); overflow-y: auto; }
   body { height: auto; }
-  .col-left, .col-right { grid-template-rows: auto; }  /* content height when the page scrolls */
+  .col-left, .col-mid, .col-right { grid-template-rows: auto; }  /* content height when the page scrolls */
 }
