@@ -63,7 +63,8 @@ def _bond_rows(store: Store) -> list[dict]:
             country = quote["country"]
             row = rows.setdefault(country, {
                 "country": country, "cb_pct": None, "cb_label": None,
-                "y3m_pct": None, "y10_pct": None, "chg_1d_bp": None, "chg_1w_bp": None,
+                "y3m_pct": None, "y10_pct": None, "y3m_label": None, "y10_label": None,
+                "chg_1d_bp": None, "chg_1w_bp": None,
                 "updated_at": doc.updated_at,
             })
             if key.endswith("CB"):
@@ -71,10 +72,12 @@ def _bond_rows(store: Store) -> list[dict]:
                 row["cb_label"] = quote.get("label")
             elif quote["tenor"] == "3M":
                 row["y3m_pct"] = quote["yield_pct"]
+                row["y3m_label"] = quote.get("tenor_label")
             elif quote["tenor"] == "10Y":
                 series = store.points(f"yield:{country}10Y")
                 asof = _asof(quote["ts"])
                 row["y10_pct"] = quote["yield_pct"]
+                row["y10_label"] = quote.get("tenor_label")
                 row["chg_1d_bp"] = bp_move(quote["yield_pct"], ref_close(series, asof, "1d"))
                 row["chg_1w_bp"] = bp_move(quote["yield_pct"], ref_close(series, asof, "1w"))
         except (KeyError, TypeError, ValueError) as exc:

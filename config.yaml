@@ -85,12 +85,17 @@ bonds:
   - { country: US, tenor: 3M,  fred: DGS3MO }
   - { country: DE, tenor: 10Y, bundesbank: "D.I.ZST.ZI.EUR.S1311.B.A604.R10XX.R.A.A._Z._Z.A" }
   - { country: DE, tenor: 3M,  ecb: "YC.B.U2.EUR.4F.G_N_A.SV_C_YM.SR_3M" }  # euro-area AAA curve; ≈ Bunds at the short end
-  # No UK row: the only keyless daily gilt source is the BoE IADB CSV export,
-  # whose path robots.txt disallows.
+  - { country: GB, tenor: 10Y, boe: "10" }
+  # BoE's published curve has no 3M point; the 3M cell shows its 6-month spot
+  # yield instead (tenor_label overrides the matrix tooltip to say so).
+  - { country: GB, tenor: 3M,  boe: "0.5", tenor_label: "6M" }
 
 cb_rates:          # policy rates for the WORLD BONDS matrix; country must match a bonds row
   - { country: US, label: FED, fred: DFEDTARU }
   - { country: DE, label: ECB, fred: ECBDFR }
+  # No GB row: FRED's UK policy-rate series (BOERUKM et al.) stopped updating
+  # in 2017 and there is no other clean keyless daily/weekly Bank Rate feed
+  # (the BoE IADB CSV export's path is robots.txt-disallowed).
 
 series:            # macro click-through charts; transform per changes.apply_transform
   - { id: us-cpi-yoy,       name: "US CPI YoY %",            fred: CPIAUCSL,           unit: "%",   transform: yoy }
@@ -137,6 +142,19 @@ cycle_series:      # market-cycle series (spec 2026-08-24); exactly one source k
   - { id: infl-5y5y,    name: "5y5y fwd inflation",        unit: "%",   fred: T5YIFR }
   - { id: real-10y,     name: "10Y real rate (TIPS)",      unit: "%",   fred: DFII10 }
   - { id: usd-broad,    name: "USD broad index",           unit: idx,   fred: DTWEXBGS }
+  # ---- ECON: EURO AREA ----
+  - { id: ea-esi,        name: "EA Economic Sentiment",     unit: idx, eurostat: "ei_bssi_m_r2?geo=EA21&s_adj=SA&indic=BS-ESI-I" }
+  - { id: ea-cons-conf,  name: "EA consumer confidence",    unit: bal, eurostat: "ei_bssi_m_r2?geo=EA21&s_adj=SA&indic=BS-CSMCI-BAL" }
+  - { id: ea-ind-conf,   name: "EA industrial confidence",  unit: bal, eurostat: "ei_bssi_m_r2?geo=EA21&s_adj=SA&indic=BS-ICI-BAL" }
+  - { id: ea-svc-conf,   name: "EA services confidence",    unit: bal, eurostat: "ei_bssi_m_r2?geo=EA21&s_adj=SA&indic=BS-SCI-BAL" }
+  - { id: ea-retail-conf,name: "EA retail confidence",      unit: bal, eurostat: "ei_bssi_m_r2?geo=EA21&s_adj=SA&indic=BS-RCI-BAL" }
+  - { id: ea-core-hicp,  name: "EA core HICP YoY",          unit: "%", eurostat: "prc_hicp_minr?geo=EA21&unit=RCH_A&coicop18=TOT_X_NRG_FOOD" }
+  # ---- ECON: UK ----
+  - { id: uk-unemployment, name: "UK unemployment rate",    unit: "%", dbnomics: "ONS/LMS/MGSX.M" }  # ONS direct; the FRED/OECD copy lags a month
+  - { id: uk-retail-yoy,   name: "UK retail sales YoY",     unit: "%", fred: GBRSLRTTO01GYSAM }
+  - { id: uk-gdp-yoy,      name: "UK monthly GDP YoY",      unit: "%", dbnomics: "ONS/MGDP/ECY2.M", transform: yoy }
+  - { id: uk-cpi-yoy,      name: "UK CPI YoY",              unit: "%", dbnomics: "ONS/MM23/D7G7.M" }
+  - { id: uk-cpih-yoy,     name: "UK CPIH YoY",             unit: "%", dbnomics: "ONS/MM23/L55O.M" }
   # ---- CREDIT ----
   - { id: t10y3m,       name: "US 10Y-3M curve",           unit: "%",   fred: T10Y3M }
   - { id: t10y2y,       name: "US 10Y-2Y curve",           unit: "%",   fred: T10Y2Y }
@@ -196,6 +214,21 @@ cycle_tabs:        # layout only; rows reference cycle_series ids
           - { series: breakeven-10y }
           - { series: infl-5y5y }
           - { series: real-10y }
+      - title: "EURO AREA"
+        rows:
+          - { series: ea-esi }
+          - { series: ea-cons-conf }
+          - { series: ea-ind-conf }
+          - { series: ea-svc-conf }
+          - { series: ea-retail-conf }
+          - { series: ea-core-hicp }
+      - title: "UK"
+        rows:
+          - { series: uk-gdp-yoy }
+          - { series: uk-unemployment }
+          - { series: uk-retail-yoy }
+          - { series: uk-cpi-yoy }
+          - { series: uk-cpih-yoy }
   - id: credit
     label: CREDIT
     panels:
