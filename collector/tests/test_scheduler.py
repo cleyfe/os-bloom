@@ -1,5 +1,6 @@
 from pathlib import Path
 
+import yaml
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 
 from collector.config import load_config
@@ -32,8 +33,10 @@ def test_register_jobs_creates_all_jobs_with_config_cadences(tmp_path):
     jobs = {j.id: j for j in scheduler.get_jobs()}
     assert set(jobs) == {
         "equity", "bonds", "macro", "news", "macro_history", "defi", "midnight",
-        "refs", "refs_history", "morpho", "cycle", "actuals",
+        "refs", "refs_history", "morpho", "cycle", "actuals", "fx", "sectors",
     }
+    assert jobs["fx"].trigger.interval.total_seconds() == 300
+    assert jobs["sectors"].trigger.interval.total_seconds() == 900
     assert jobs["equity"].trigger.interval.total_seconds() == 300
     assert jobs["news"].trigger.interval.total_seconds() == 600
     assert jobs["macro"].trigger.interval.total_seconds() == 3600
@@ -55,4 +58,21 @@ def test_main_builds_app(tmp_path, monkeypatch):
 
     app, scheduler = build()
     assert app.title == "os-bloom collector"
-    assert len(scheduler.get_jobs()) == 12
+    assert len(scheduler.get_jobs()) == 14
+
+
+def test_fx_and_sectors_jobs_absent_when_lists_empty(tmp_path):
+    raw = yaml.safe_load((REPO_ROOT / "config.yaml").read_text())
+    raw.pop("fx", None)
+    raw.pop("sectors", None)
+    p = tmp_path / "config.yaml"
+    p.write_text(yaml.safe_dump(raw))
+    cfg = load_config(p)
+    store = Store(tmp_path / "t.db")
+    scheduler = AsyncIOScheduler(timezone="UTC")
+    register_jobs(
+        scheduler, cfg, store, get_text=fake_get, post_json=fake_post,
+        get_bytes=fake_bytes, fred_api_key="k"
+    )
+    jobs = {j.id for j in scheduler.get_jobs()}
+    assert "fx" not in jobs and "sectors" not in jobs

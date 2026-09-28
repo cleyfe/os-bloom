@@ -5,7 +5,7 @@ import logging
 from datetime import datetime, time, timedelta, timezone
 
 from collector.changes import apply_transform, bp_move, pct_change, ref_close
-from collector.config import CycleSeriesCfg, CycleTabCfg, IndexCfg
+from collector.config import CycleSeriesCfg, CycleTabCfg, IndexCfg, SectorGroupCfg
 from collector.store import Store
 
 log = logging.getLogger(__name__)
@@ -19,29 +19,33 @@ def _asof(ts_iso: str):
     return datetime.fromisoformat(ts_iso.replace("Z", "+00:00")).date()
 
 
-def _equity_rows(store: Store, indexes: list[IndexCfg]) -> list[dict]:
-    doc = store.doc("equity_quotes")
+def _quote_rows(store: Store, instruments: list[IndexCfg], doc_key: str, prefix: str) -> list[dict]:
+    doc = store.doc(doc_key)
     if doc is None:
         return []
     rows = []
-    for idx in indexes:  # config order == display order
-        quote = doc.payload.get(idx.symbol)
+    for item in instruments:  # config order == display order
+        quote = doc.payload.get(item.symbol)
         if quote is None:
             continue
         try:
-            closes = store.points(f"idx:{idx.symbol}")
+            closes = store.points(f"{prefix}{item.symbol}")
             asof = _asof(quote["ts"])
-            row = {"symbol": idx.symbol, "name": idx.name, "last": quote["last"],
+            row = {"symbol": item.symbol, "name": item.name, "last": quote["last"],
                    "source": quote["source"], "delayed": quote["delayed"],
                    "updated_at": doc.updated_at}
             for horizon in HORIZONS:
                 row[f"chg_{horizon}"] = pct_change(quote["last"], ref_close(closes, asof, horizon))
         except (KeyError, TypeError, ValueError) as exc:
             # one malformed row must degrade that row, never 500 the dashboard
-            log.warning("skipping malformed equity quote for %s: %s", idx.symbol, exc)
+            log.warning("skipping malformed %s quote for %s: %s", doc_key, item.symbol, exc)
             continue
         rows.append(row)
     return rows
+
+
+def _equity_rows(store: Store, indexes: list[IndexCfg]) -> list[dict]:
+    return _quote_rows(store, indexes, "equity_quotes", "idx:")
 
 
 def _bond_rows(store: Store) -> list[dict]:
@@ -183,12 +187,33 @@ def _doc_panel(store: Store, key: str, list_key: str) -> dict:
     return {list_key: doc.payload[list_key], "updated_at": doc.updated_at, "source": doc.source}
 
 
+def _fx_panel(store: Store, fx: list[IndexCfg]) -> dict:
+    doc = store.doc("fx_quotes")
+    return {"rows": _quote_rows(store, fx, "fx_quotes", "fx:"),
+            "updated_at": doc.updated_at if doc else None,
+            "source": doc.source if doc else None}
+
+
+def _sectors_panel(store: Store, sectors: list[SectorGroupCfg]) -> dict:
+    doc = store.doc("sector_quotes")
+    return {
+        "groups": [
+            {"title": g.title, "note": g.note, "rows": _quote_rows(store, g.rows, "sector_quotes", "sec:")}
+            for g in sectors
+        ],
+        "updated_at": doc.updated_at if doc else None,
+        "source": doc.source if doc else None,
+    }
+
+
 def build_dashboard(
     store: Store,
     indexes: list[IndexCfg],
     now: datetime,
     cycle_series: list[CycleSeriesCfg] = (),
     cycle_tabs: list[CycleTabCfg] = (),
+    fx: list[IndexCfg] = (),
+    sectors: list[SectorGroupCfg] = (),
 ) -> dict:
     equity_doc = store.doc("equity_quotes")
     bonds_doc = store.doc("bond_quotes")
@@ -207,5 +232,7 @@ def build_dashboard(
             "morpho": _doc_panel(store, "morpho_markets", "rows"),
             "refs": _refs_panel(store),
             "cycle": _cycle_panel(store, list(cycle_series), list(cycle_tabs)),
+            "fx": _fx_panel(store, list(fx)),
+            "sectors": _sectors_panel(store, list(sectors)),
         },
     }

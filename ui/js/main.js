@@ -1,17 +1,29 @@
 import { getDashboard } from "./api.js";
-import { fmtAge, fmtClock, isStale } from "./fmt.js";
+import { fmtAge, fmtClock, fmtFx, isStale } from "./fmt.js";
 import { defiFootData, initDefiViewToggle, renderDefi, renderMidnight } from "./panels/defi.js";
 import { renderBonds, renderEquity } from "./panels/equity.js";
 import { renderMacro } from "./panels/macro.js";
 import { renderNews } from "./panels/news.js";
 import { renderCycle } from "./panels/cycle.js";
+import { renderQuoteTable } from "./panels/quotes.js";
 import { renderRefs } from "./panels/refs.js";
+import { renderSectors } from "./panels/sectors.js";
 import { initTabs } from "./tabs.js";
 
 const POLL_MS = 60_000;
-const STALE_MINUTES = { equity: 20, bonds: 130, macro: 390, news: 40, defi: 35, midnight: 35, refs: 35 };  // ~2x cadence
+// ~2x cadence, except fx (20min on a 5min cadence) and sectors (40min on 15min),
+// matching the equity/defi ratios already in use.
+const STALE_MINUTES = {
+  equity: 20, bonds: 130, macro: 390, news: 40, defi: 35, midnight: 35, refs: 35, fx: 20,
+};
 
 const EMPTY = { rows: [], updated_at: null, source: null };
+const EMPTY_SECTORS = { groups: [], updated_at: null, source: null };
+
+function renderFx(fx) {
+  const body = document.querySelector("#panel-fx .panel-body");
+  renderQuoteTable(body, fx.rows, { label: "FX", digits: fmtFx });
+}
 
 let lastDash = null; // last successful payload, for the view-toggle re-render (no re-fetch)
 
@@ -43,12 +55,15 @@ async function tick() {
     renderMidnight(p.midnight ?? EMPTY);
     renderRefs(p.refs ?? EMPTY);
     renderCycle(p.cycle ?? { tabs: [], updated_at: null });
+    renderFx(p.fx ?? EMPTY);
+    renderSectors(p.sectors ?? EMPTY_SECTORS);
     foot("equity", "equity", { ...p.equity, source: p.equity.rows[0]?.source });
     foot("bonds", "bonds", p.bonds);
     foot("macro", "macro", p.macro);
     foot("news", "news", p.news);
     foot("midnight", "midnight", p.midnight ?? EMPTY);
     foot("refs", "refs", p.refs ?? EMPTY);
+    foot("fx", "fx", p.fx ?? EMPTY);
     document.getElementById("clock").textContent = `as of ${fmtClock(dash.as_of)} UTC`;
     banner.classList.add("hidden");
   } catch (err) {

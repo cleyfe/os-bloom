@@ -15,7 +15,7 @@ live upstreams, awkward data, and decisions that have to be defended.
 
 [![License](https://img.shields.io/badge/license-MIT-f5a623?style=flat-square)](LICENSE)
 ![Python](https://img.shields.io/badge/python-3.12+-5f9ea0?style=flat-square)
-![Tests](https://img.shields.io/badge/tests-212%20passing-4c9a2a?style=flat-square)
+![Tests](https://img.shields.io/badge/tests-224%20passing-4c9a2a?style=flat-square)
 ![Paid data sources](https://img.shields.io/badge/paid%20data%20sources-0-f5a623?style=flat-square)
 ![Built AI-first](https://img.shields.io/badge/built-AI--first-8a63d2?style=flat-square)
 
@@ -32,11 +32,12 @@ five-tab market-cycle chart pack.
 
 ## Tabs
 
-Press `1`–`7`, or use `#/mkt`-style URL fragments.
+Press `1`–`8`, or use `#/mkt`-style URL fragments.
 
 | Tab | Contents |
 | --- | --- |
-| **MKT** | Macro release calendar (this week's prints and what is still to come, actuals from FRED and Eurostat within the hour), 10 world equity indexes, a bond matrix (10Y / 3M / central bank rate, for the US and Germany), and top headlines. Every row opens a click-through chart. |
+| **MKT** | Macro release calendar (this week's prints and what is still to come, actuals from FRED and Eurostat within the hour), 10 world equity indexes, a CURRENCIES panel (dollar index plus 10 FX pairs), a bond matrix (10Y / 3M / central bank rate, for the US and Germany), and top headlines. Every row opens a click-through chart. |
+| **SECTORS** | US sector performance (11 SPDR select sector funds) and Europe sector performance (19 iShares STOXX Europe 600 sector ETFs on Xetra), same last/1D/1W/YTD/1Y columns as MKT. Every row opens a click-through chart. |
 | **DEFI** | Zyfai decentralized-finance USDC yield tiers, Morpho Midnight fixed-term structure with a hover-readout curve, Morpho markets, and a RATE REFS panel (Aave, Pendle implied APY, BTC perp funding) with history charts. |
 | **RISK** | Volatility and hedging (VIX, VXN, put/call), sentiment and rotation (AAII spread, cyclicals/defensives, small/large, gold/silver). |
 | **ECON** | ISM PMIs, OECD leading indicators, jobless claims, JOLTS, heavy truck sales, UMich sentiment, M2, breakevens, real rates, dollar index. |
@@ -152,7 +153,9 @@ Everything is declarative in [`config.yaml`](config.yaml) — no code changes to
 add or drop a series:
 
 - `cadences` — seconds between runs, per fetcher
-- `indexes`, `bonds`, `cb_rates` — instruments and their source IDs
+- `indexes`, `fx`, `bonds`, `cb_rates` — instruments and their source IDs
+- `sectors` — groups of sector instruments for the SECTORS tab, each a
+  `title`, an optional `note` and `rows` like `indexes`
 - `series`, `cycle_series` — chart series; exactly one source key each, with an
   optional `transform` (`yoy`, `diff`, `pct_prev`) and `valid_range` guard
 - `cycle_tabs` — pure layout; rows reference `cycle_series` ids

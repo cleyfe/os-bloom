@@ -2,7 +2,7 @@ from datetime import date
 from pathlib import Path
 
 from collector.config import IndexCfg
-from collector.fetchers.equity import fetch_equity
+from collector.fetchers.equity import fetch_equity, fetch_quotes
 from collector.store import Store
 
 YAHOO_SPX = (Path(__file__).parent / "fixtures" / "yahoo_spx.json").read_text()
@@ -110,3 +110,28 @@ async def test_one_call_per_symbol_when_yahoo_succeeds(tmp_path):
     label = await fetch_equity([cfg("SPX")], store, counting_get)
     assert label == "yahoo"
     assert len(calls) == 1
+
+
+async def test_fetch_quotes_writes_fx_series_and_doc(tmp_path):
+    store = Store(tmp_path / "t.db")
+    label = await fetch_quotes(
+        [cfg("EURUSD", yahoo="^GSPC")], store, fake_get, "fx:", "fx_quotes",
+    )
+    assert label == "yahoo"
+    q = store.doc("fx_quotes").payload["EURUSD"]
+    assert q["source"] == "yahoo" and q["last"] == 6240.10
+    assert store.points("fx:EURUSD")
+    # equity_quotes / idx: are untouched by the fx doc/prefix
+    assert store.doc("equity_quotes") is None
+    assert not store.points("idx:EURUSD")
+
+
+async def test_fetch_quotes_writes_sector_series_and_doc(tmp_path):
+    store = Store(tmp_path / "t.db")
+    label = await fetch_quotes(
+        [cfg("XLK", yahoo="^GSPC")], store, fake_get, "sec:", "sector_quotes",
+    )
+    assert label == "yahoo"
+    q = store.doc("sector_quotes").payload["XLK"]
+    assert q["last"] == 6240.10
+    assert store.points("sec:XLK")

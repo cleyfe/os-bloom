@@ -1,27 +1,10 @@
 import { openChart } from "../chart.js";
-import { fmtBp, fmtNum, fmtPct } from "../fmt.js";
-
-const HORIZONS = ["1d", "1w", "ytd", "1y"];
+import { fmtBp } from "../fmt.js";
+import { renderQuoteTable } from "./quotes.js";
 
 export function renderEquity(panel) {
   const body = document.querySelector("#panel-equity .panel-body");
-  const cells = (row) => HORIZONS.map((h) => {
-    const { text, cls } = fmtPct(row[`chg_${h}`]);
-    return `<td class="${cls}">${text}</td>`;
-  }).join("");
-  body.innerHTML = `<table>
-    <tr><th>Index</th><th>Last</th><th>1D</th><th>1W</th><th>YTD</th><th>1Y</th></tr>
-    ${panel.rows.map((r, i) =>
-      `<tr class="clickable" data-i="${i}"><td class="sym" title="${r.name}">${r.symbol}</td>` +
-      `<td>${fmtNum(r.last)}</td>${cells(r)}</tr>`
-    ).join("")}
-  </table>`;
-  body.querySelectorAll("tr.clickable").forEach((tr) => {
-    tr.addEventListener("click", () => {
-      const r = panel.rows[Number(tr.dataset.i)];
-      openChart(r.symbol, r.name);
-    });
-  });
+  renderQuoteTable(body, panel.rows, { label: "Index" });
 }
 
 // Matrix: one row per country, CB / 3M / 10Y cells each click through to

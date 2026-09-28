@@ -18,7 +18,7 @@ from collector.config import Config
 from collector.fetchers.actuals import fetch_actuals
 from collector.fetchers.bonds import fetch_bonds
 from collector.fetchers.cycle import fetch_cycle
-from collector.fetchers.equity import fetch_equity
+from collector.fetchers.equity import fetch_equity, fetch_quotes
 from collector.fetchers.fred import fetch_macro_history
 from collector.fetchers.macro import fetch_calendar_if_due
 from collector.fetchers.midnight import fetch_midnight
@@ -70,6 +70,13 @@ def register_jobs(
         "cycle": (cfg.cadences["cycle"],
                   partial(fetch_cycle, cfg.cycle_series, store, fred_api_key, get_text, get_bytes)),
     }
+    if cfg.fx:
+        fetchers["fx"] = (cfg.cadences.get("fx", 300),
+                          partial(fetch_quotes, cfg.fx, store, get_text, "fx:", "fx_quotes"))
+    if cfg.sectors:
+        sector_rows = [r for g in cfg.sectors for r in g.rows]
+        fetchers["sectors"] = (cfg.cadences.get("sectors", 900),
+                               partial(fetch_quotes, sector_rows, store, get_text, "sec:", "sector_quotes"))
     for name, (seconds, fn) in fetchers.items():
         scheduler.add_job(
             partial(run_fetcher, name, store, fn),
