@@ -17,7 +17,7 @@ export function renderSectors(panel) {
     return;
   }
   const stale = isStale(panel.updated_at, STALE_MINUTES);
-  const foot = `<div class="panel-foot muted${stale ? " stale" : ""}">DATA: ${(panel.source ?? "—").toUpperCase()} · ${fmtAge(panel.updated_at)}</div>`;
+  const foot = `<div class="panel-foot muted${stale ? " stale" : ""}">DATA: ${esc((panel.source ?? "—").toUpperCase())} · ${fmtAge(panel.updated_at)}</div>`;
   root.innerHTML = groups.map((g, gi) => `
     <section class="panel" id="sector-panel-${gi}">
       <div class="panel-title"><span>${esc(g.title)}</span>${g.note ? `<span class="muted">${esc(g.note)}</span>` : ""}</div>

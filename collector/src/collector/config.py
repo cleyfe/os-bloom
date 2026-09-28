@@ -257,10 +257,14 @@ def load_config(path: str | Path) -> Config:
         [i.symbol for i in indexes]
         + [i.symbol for i in fx]
         + [r.symbol for g in sectors for r in g.rows]
+        # chart ids share one namespace in /api/series/{id}: a series id equal
+        # to a quote symbol would silently take over that quote's chart
+        + [s["id"] for s in raw["series"]]
+        + [s["id"] for s in raw["cycle_series"]]
     )
     dup = _duplicate_symbol(all_symbols)
     if dup is not None:
-        raise ValueError(f"duplicate symbol across indexes/fx/sectors: {dup!r}")
+        raise ValueError(f"duplicate id across indexes/fx/sectors/series/cycle_series: {dup!r}")
     return Config(
         db_path=os.environ.get("DB_PATH", raw["db_path"]),
         calendar_url=raw["calendar_url"],

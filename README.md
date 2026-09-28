@@ -153,7 +153,9 @@ Everything is declarative in [`config.yaml`](config.yaml) — no code changes to
 add or drop a series:
 
 - `cadences` — seconds between runs, per fetcher
-- `indexes`, `bonds`, `cb_rates` — instruments and their source IDs
+- `indexes`, `fx`, `bonds`, `cb_rates` — instruments and their source IDs
+- `sectors` — groups of sector instruments for the SECTORS tab, each a
+  `title`, an optional `note` and `rows` like `indexes`
 - `series`, `cycle_series` — chart series; exactly one source key each, with an
   optional `transform` (`yoy`, `diff`, `pct_prev`) and `valid_range` guard
 - `cycle_tabs` — pure layout; rows reference `cycle_series` ids
