@@ -15,7 +15,7 @@ live upstreams, awkward data, and decisions that have to be defended.
 
 [![License](https://img.shields.io/badge/license-MIT-f5a623?style=flat-square)](LICENSE)
 ![Python](https://img.shields.io/badge/python-3.12+-5f9ea0?style=flat-square)
-![Tests](https://img.shields.io/badge/tests-224%20passing-4c9a2a?style=flat-square)
+![Tests](https://img.shields.io/badge/tests-232%20passing-4c9a2a?style=flat-square)
 ![Paid data sources](https://img.shields.io/badge/paid%20data%20sources-0-f5a623?style=flat-square)
 ![Built AI-first](https://img.shields.io/badge/built-AI--first-8a63d2?style=flat-square)
 
@@ -36,16 +36,16 @@ Press `1`–`8`, or use `#/mkt`-style URL fragments.
 
 | Tab | Contents |
 | --- | --- |
-| **MKT** | Macro release calendar (this week's prints and what is still to come, actuals from FRED and Eurostat within the hour), 10 world equity indexes, a CURRENCIES panel (dollar index plus 10 FX pairs), a bond matrix (10Y / 3M / central bank rate, for the US and Germany), and top headlines. Every row opens a click-through chart. |
+| **MKT** | Macro release calendar (this week's prints and what is still to come, actuals from FRED and Eurostat within the hour), 10 world equity indexes, a CURRENCIES panel (dollar index plus 10 FX pairs), a bond matrix (10Y / 3M / central bank rate, for the US, Germany and the UK — the UK's short cell shows the Bank of England curve's 6-month spot yield, since the curve has no 3M point, and there is no UK row in the CB column: no clean keyless Bank Rate feed), and top headlines. Every row opens a click-through chart. |
 | **SECTORS** | US sector performance (11 SPDR select sector funds) and Europe sector performance (19 iShares STOXX Europe 600 sector ETFs on Xetra), same last/1D/1W/YTD/1Y columns as MKT. Every row opens a click-through chart. |
 | **DEFI** | Zyfai decentralized-finance USDC yield tiers, Morpho Midnight fixed-term structure with a hover-readout curve, Morpho markets, and a RATE REFS panel (Aave, Pendle implied APY, BTC perp funding) with history charts. |
 | **RISK** | Volatility and hedging (VIX, VXN, put/call), sentiment and rotation (AAII spread, cyclicals/defensives, small/large, gold/silver). |
-| **ECON** | ISM PMIs, OECD leading indicators, jobless claims, JOLTS, heavy truck sales, UMich sentiment, M2, breakevens, real rates, dollar index. |
+| **ECON** | ISM PMIs, OECD leading indicators, jobless claims, JOLTS, heavy truck sales, UMich sentiment, M2, breakevens, real rates, dollar index, a EURO AREA panel (Economic/consumer/industrial/services/retail sentiment, core HICP y/y), and a UK panel (monthly GDP y/y, unemployment, retail sales y/y, CPI y/y, CPIH y/y). |
 | **CREDIT** | Yield curves (10Y-3M, 10Y-2Y), IG/HY/BBB/CCC option-adjusted spreads, the Chicago Fed NFCI, and bank lending growth. |
 | **PROFIT** | Corporate profits growth. |
 | **POS** | CFTC Commitments of Traders net non-commercial positioning (VIX, crude, USD index, GBP). |
 
-The 39 market-cycle series across RISK/ECON/CREDIT/PROFIT/POS refresh daily.
+The 49 market-cycle series across RISK/ECON/CREDIT/PROFIT/POS refresh daily.
 
 ## Every row opens a chart
 
@@ -102,7 +102,7 @@ keyless.
 | Source | Provides | Key |
 | --- | --- | :---: |
 | [FRED](https://fred.stlouisfed.org/) | US/EZ macro series, Treasury yields, credit spreads, NFCI, recession bands and US release prints | free key |
-| [DBnomics](https://db.nomics.world/) | ISM manufacturing + services PMI | — |
+| [DBnomics](https://db.nomics.world/) | ISM manufacturing + services PMI, UK (ONS) monthly GDP, CPI and CPIH y/y | — |
 | [OECD SDMX](https://sdmx.oecd.org/) | Composite leading indicators (US, G4E) | — |
 | [CFTC](https://publicreporting.cftc.gov/) | Commitments of Traders positioning | — |
 | [CBOE](https://www.cboe.com/) | Daily total + equity put/call ratios | — |
@@ -110,8 +110,9 @@ keyless.
 | [Yahoo Finance](https://finance.yahoo.com/) | Equity index closes and ratio series | — |
 | [ECB Data Portal](https://data.ecb.europa.eu/) | Euro-area AAA yield curve (3M) | — |
 | [Bundesbank](https://www.bundesbank.de/) | German 10Y benchmark | — |
+| [Bank of England](https://www.bankofengland.co.uk/statistics/yield-curves) | UK gilt nominal spot curve (10Y, 6M) | — |
 | ForexFactory mirror | Macro release calendar (times, consensus, previous) | — |
-| [Eurostat](https://ec.europa.eu/eurostat) | Euro-area HICP, unemployment and GDP prints | — |
+| [Eurostat](https://ec.europa.eu/eurostat) | Euro-area HICP, unemployment, GDP, sentiment/confidence indicators and core HICP prints | — |
 | FT, CNBC, MarketWatch, ECB, Fed | Headlines, via public RSS | — |
 | [Morpho](https://morpho.org/) | Morpho Blue markets, Midnight fixed-term book | — |
 | [Pendle](https://www.pendle.finance/) | Implied APY and expiry | — |
@@ -133,10 +134,14 @@ itself to:
 - **Never defeat a bot check.** If a source puts its data behind a CAPTCHA or
   a proof-of-work challenge, that is a clear "no" and the source is dropped,
   not worked around. Stooq was removed for exactly this reason.
-- **Never fetch a path `robots.txt` disallows.** This is why there is no UK row
-  in the bond matrix: the only keyless daily gilt source is the Bank of England
-  IADB CSV export, whose path BoE disallows. A row we cannot source politely is
-  a row we do without.
+- **Never fetch a path `robots.txt` disallows.** The UK gilt row reads the Bank
+  of England's published "latest yield curve data" zip, under a `/-/media/...`
+  asset path `robots.txt` allows — not the BoE IADB CSV export, whose
+  `/boeapps/iadb` path is disallowed, which is why that source was never
+  wired up. A row we cannot source politely is a row we do without: the same
+  reasoning leaves the UK central-bank-rate cell empty, since FRED's UK
+  policy-rate series stopped updating in 2017 and there is no other clean
+  keyless daily/weekly Bank Rate feed.
 - **Every source keeps its own terms.** FRED, OECD, CFTC, ECB, Bundesbank and
   DefiLlama publish open-data terms. Yahoo Finance does not offer a documented
   free API — os-bloom reads the same public endpoint a browser does, at low
@@ -164,7 +169,7 @@ add or drop a series:
 ## Development
 
 ```bash
-make test    # unit suite, no network (28 test files, 188 tests, HTTP fully faked)
+make test    # unit suite, no network (31 test files, 232 tests, HTTP fully faked)
 make run     # docker compose up --build
 make smoke   # live end-to-end check against a running stack
 ```
