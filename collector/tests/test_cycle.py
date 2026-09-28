@@ -15,6 +15,7 @@ CFTC = (FIX / "cftc_vix.json").read_text()
 CBOE = (FIX / "cboe_daily.json").read_text()
 YAHOO = (FIX / "yahoo_spx.json").read_text()
 AAII = (FIX / "aaii_sentiment.xls").read_bytes()
+EUROSTAT = (FIX / "eurostat_hicp_total.json").read_text()
 
 
 def fake_io(urls):
@@ -32,6 +33,8 @@ def fake_io(urls):
             return CBOE
         if "yahoo.com" in url:
             return YAHOO
+        if "eurostat" in url:
+            return EUROSTAT
         raise AssertionError(f"unexpected url {url}")
 
     async def get_bytes(url, params=None, headers=None):
@@ -45,6 +48,7 @@ ALL_SOURCES = [
     CycleSeriesCfg(id="vix", name="VIX", unit="idx", fred="VIXCLS"),
     CycleSeriesCfg(id="ism", name="ISM", unit="idx", dbnomics="ISM/pmi/pm"),
     CycleSeriesCfg(id="cli", name="CLI", unit="idx", oecd="F/USA.M.LI...AA...H"),
+    CycleSeriesCfg(id="esi", name="ESI", unit="idx", eurostat="ei_bssi_m_r2?geo=EA21"),
     CycleSeriesCfg(id="cot", name="COT", unit="contracts", cftc="1170E1"),
     CycleSeriesCfg(id="pc", name="PC", unit="ratio", cboe="TOTAL PUT/CALL RATIO"),
     CycleSeriesCfg(id="aaii", name="AAII", unit="pts", aaii="bull_bear_spread"),
@@ -62,6 +66,24 @@ async def test_fetch_cycle_dispatches_every_source(tmp_path):
     for cfg in ALL_SOURCES:
         assert store.points(f"cycle:{cfg.id}") != {}, cfg.id
     assert sum("yahoo.com" in u for u in urls) == 2  # numerator + denominator
+
+
+async def test_fetch_cycle_eurostat_branch(tmp_path):
+    store = Store(tmp_path / "t.db")
+    seen = {}
+
+    async def get_text(url, params=None, headers=None):
+        seen["url"] = url
+        return EUROSTAT
+
+    async def get_bytes(url, params=None, headers=None):
+        raise AssertionError("unused")
+
+    series = [CycleSeriesCfg(id="ea-esi", name="ESI", unit="idx",
+                             eurostat="ei_bssi_m_r2?geo=EA21&s_adj=SA&indic=BS-ESI-I")]
+    await fetch_cycle(series, store, "k", get_text, get_bytes)
+    assert "ei_bssi_m_r2" in seen["url"] and "sinceTimePeriod=" in seen["url"]
+    assert store.points("cycle:ea-esi") != {}
 
 
 async def test_fetch_cycle_isolates_failures(tmp_path):
