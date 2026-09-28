@@ -20,8 +20,8 @@ export function renderBonds(panel) {
     ${panel.rows.map((r) =>
       `<tr><td class="sym">${r.country}</td>` +
       yld(r, r.cb_pct, "CB", `${r.cb_label ?? r.country} RATE`) +
-      yld(r, r.y3m_pct, "3M", `${r.country} 3M YIELD`) +
-      yld(r, r.y10_pct, "10Y", `${r.country} 10Y YIELD`) +
+      yld(r, r.y3m_pct, "3M", `${r.country} ${r.y3m_label ?? "3M"} YIELD`) +
+      yld(r, r.y10_pct, "10Y", `${r.country} ${r.y10_label ?? "10Y"} YIELD`) +
       `${chg(r.chg_1d_bp)}${chg(r.chg_1w_bp)}</tr>`
     ).join("")}
   </table>`;

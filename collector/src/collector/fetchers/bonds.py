@@ -1,11 +1,13 @@
 """Government yields (10Y + 3M) and central bank policy rates.
 
-Chain per bond: FRED (US) -> Bundesbank (DE 10Y) -> ECB (euro-area 3M curve).
-CB rates use the same FRED fetcher.
+Chain per bond: FRED (US) -> Bundesbank (DE 10Y) -> ECB (euro-area 3M curve)
+-> BoE (GB, from the "latest yield curve data" zip). CB rates use the FRED
+fetcher; there is no clean keyless daily/weekly UK Bank Rate source (FRED's
+UK policy-rate series stopped updating in 2017), so the GB CB cell is left
+empty rather than shipped with a stale or mismatched proxy.
 
-UK gilts are deliberately absent: the only keyless daily source is the BoE
-IADB CSV export, whose path robots.txt disallows. Rather than ship a fetcher
-that every user would be running against that directive, the UK row is out.
+The BoE zip is downloaded once per run (not once per `boe:` row) and its
+tenors handed to each `boe:` instrument.
 
 Writes history to 'yield:{country}{tenor}' / 'cb:{country}' and latest to the
 'bond_quotes' doc keyed '{country}{tenor}' ('US10Y', 'US3M', 'USCB'):
@@ -19,15 +21,16 @@ from __future__ import annotations
 import logging
 
 from collector.config import BondCfg, CbRateCfg
-from collector.fetchers import bundesbank, ecb, fred
-from collector.http import GetText
+from collector.fetchers import boe, bundesbank, ecb, fred
+from collector.http import GetBytes, GetText
 from collector.store import Store
 
 log = logging.getLogger(__name__)
 
 
 async def _daily_series(
-    cfg: BondCfg | CbRateCfg, get_text: GetText, fred_api_key: str
+    cfg: BondCfg | CbRateCfg, get_text: GetText, fred_api_key: str,
+    boe_data: dict[str, list] | None, boe_error: str | None,
 ) -> tuple[list, str] | None:
     """(closes, source) via the keyless-source chain, or None if unconfigured."""
     if cfg.fred:
@@ -36,6 +39,10 @@ async def _daily_series(
         return await bundesbank.fetch_series(cfg.bundesbank, get_text), "bundesbank"
     if getattr(cfg, "ecb", None):
         return await ecb.fetch_series(cfg.ecb, get_text), "ecb"
+    if getattr(cfg, "boe", None):
+        if boe_data is None:
+            raise RuntimeError(boe_error or "boe zip fetch failed")
+        return boe_data[cfg.boe], "boe"
     return None
 
 
@@ -45,6 +52,7 @@ async def fetch_bonds(
     store: Store,
     get_text: GetText,
     fred_api_key: str,
+    get_bytes: GetBytes | None = None,
 ) -> str:
     instruments = [(f"{b.country}{b.tenor}", f"yield:{b.country}{b.tenor}", b) for b in bonds]
     instruments += [(f"{c.country}CB", f"cb:{c.country}", c) for c in cb_rates]
@@ -57,10 +65,20 @@ async def fetch_bonds(
     errors: list[str] = []
     fetched = 0
 
+    boe_tenors = sorted({b.boe for b in bonds if b.boe})
+    boe_data: dict[str, list] | None = None
+    boe_error: str | None = None
+    if boe_tenors:
+        try:
+            boe_data = await boe.fetch_spot_curve(boe_tenors, get_bytes)
+        except Exception as exc:  # noqa: BLE001 — degrades every boe: instrument, not the run
+            boe_error = str(exc)
+            log.warning("boe zip fetch failed: %s", exc)
+
     for key, series_id, cfg in instruments:
         try:
             is_bond = isinstance(cfg, BondCfg)
-            result = await _daily_series(cfg, get_text, fred_api_key)
+            result = await _daily_series(cfg, get_text, fred_api_key, boe_data, boe_error)
             if result is None:
                 errors.append(f"{key}: no source configured")
                 continue
@@ -76,6 +94,8 @@ async def fetch_bonds(
         quotes[key] = {"country": cfg.country, "yield_pct": value, "ts": ts, "source": source}
         if is_bond:
             quotes[key]["tenor"] = cfg.tenor
+            if cfg.tenor_label:
+                quotes[key]["tenor_label"] = cfg.tenor_label
         else:
             quotes[key]["label"] = cfg.label
         sources_used.add(source)

@@ -11,12 +11,18 @@ def test_load_real_config():
     spx = cfg.indexes[0]
     assert (spx.symbol, spx.yahoo) == ("SPX", "^GSPC")
     assert spx.yahoo == "^GSPC"
-    assert {b.country for b in cfg.bonds} == {"US", "DE"}
+    assert {b.country for b in cfg.bonds} == {"US", "DE", "GB"}
     us = next(b for b in cfg.bonds if b.country == "US")
     assert us.fred == "DGS10"
     de = next(b for b in cfg.bonds if b.country == "DE")
     assert de.bundesbank == "D.I.ZST.ZI.EUR.S1311.B.A604.R10XX.R.A.A._Z._Z.A"
-    assert not any(b.country == "UK" for b in cfg.bonds)  # no keyless gilt source
+    gb = [b for b in cfg.bonds if b.country == "GB"]
+    assert {b.tenor for b in gb} == {"10Y", "3M"}
+    gb_10y = next(b for b in gb if b.tenor == "10Y")
+    assert gb_10y.boe == "10" and gb_10y.tenor_label is None
+    gb_3m = next(b for b in gb if b.tenor == "3M")
+    assert gb_3m.boe == "0.5" and gb_3m.tenor_label == "6M"  # BoE curve has no 3M point
+    assert not any(c.country == "GB" for c in cfg.cb_rates)  # no clean UK Bank Rate source
     assert cfg.cadences["equity"] == 300
     assert cfg.max_news == 15
     ids = [s.id for s in cfg.series]
@@ -103,9 +109,12 @@ def test_cycle_config():
     assert by_id["spw-spx"].yahoo_ratio == ["RSP", "SPY"]
     assert by_id["m2-yoy"].transform == "yoy"
     assert by_id["vix"].transform == "none"  # default
+    assert by_id["ea-esi"].eurostat == "ei_bssi_m_r2?geo=EA21&s_adj=SA&indic=BS-ESI-I"
+    assert by_id["uk-gdp-yoy"].dbnomics == "ONS/MGDP/ECY2.M" and by_id["uk-gdp-yoy"].transform == "yoy"
+    assert by_id["uk-unemployment"].fred == "LRHUTTTTGBM156S"
     # every source entry has exactly one source key
     for s in cfg.cycle_series:
-        sources = [s.fred, s.dbnomics, s.oecd, s.cftc, s.cboe, s.aaii, s.yahoo_ratio]
+        sources = [s.fred, s.dbnomics, s.oecd, s.eurostat, s.cftc, s.cboe, s.aaii, s.yahoo_ratio]
         assert sum(x is not None for x in sources) == 1, s.id
     # every tab row references an existing series; overlays too
     tabs = {t.id: t for t in cfg.cycle_tabs}
@@ -117,6 +126,8 @@ def test_cycle_config():
                 assert r.series in by_id, r.series
                 assert r.overlay is None or r.overlay in by_id, r.overlay
                 assert not by_id[r.series].hidden
+    econ_panels = {p.title for p in tabs["econ"].panels}
+    assert {"EURO AREA", "UK"} <= econ_panels
 
 
 def test_actuals_rules():
