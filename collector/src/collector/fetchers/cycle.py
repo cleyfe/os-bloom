@@ -1,4 +1,4 @@
-"""Daily market-cycle job: one series list, seven source kinds, per-series
+"""Daily market-cycle job: one series list, eight source kinds, per-series
 isolation (a bad id or a dead file URL degrades that series only — the
 summary error raises at the end so /healthz surfaces it)."""
 from __future__ import annotations
@@ -6,9 +6,13 @@ from __future__ import annotations
 from datetime import date
 
 from collector.config import CycleSeriesCfg
-from collector.fetchers import aaii, cboe, cftc, dbnomics, fred, oecd, yahoo
+from collector.fetchers import aaii, cboe, cftc, dbnomics, eurostat, fred, oecd, yahoo
 from collector.http import GetBytes, GetText
 from collector.store import Store
+
+# eurostat requires a `since`; cycle series want everything available, so
+# this predates every dataset we point at (the API clips to its own start).
+EUROSTAT_SINCE = date(2000, 1, 1)
 
 
 async def _fetch_one(
@@ -24,6 +28,8 @@ async def _fetch_one(
         return await dbnomics.fetch_series(cfg.dbnomics, get_text)
     if cfg.oecd:
         return await oecd.fetch_series(cfg.oecd, get_text)
+    if cfg.eurostat:
+        return await eurostat.fetch_eurostat(cfg.eurostat, get_text, since=EUROSTAT_SINCE, freq="m")
     if cfg.cftc:
         return await cftc.fetch_net_noncommercial(cfg.cftc, get_text)
     if cfg.cboe:

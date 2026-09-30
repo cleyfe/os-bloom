@@ -43,7 +43,9 @@ def seeded_store(tmp_path) -> Store:
                  "ts": "2026-07-08T00:00:00Z", "source": "fred"},
         "JP10Y": {"country": "JP", "tenor": "10Y", "yield_pct": 4.60,  # no 3M/CB: null cells
                   "ts": "2026-07-08T00:00:00Z", "source": "bundesbank"},
-    }, source="bundesbank+fred")
+        "GB3M": {"country": "GB", "tenor": "3M", "tenor_label": "6M", "yield_pct": 4.05,
+                 "ts": "2026-07-08T00:00:00Z", "source": "boe"},
+    }, source="bundesbank+fred+boe")
     store.put_doc("macro_calendar", {"releases": [
         {"name": "CPI y/y", "country": "USD", "time": "2026-07-10T12:30:00-04:00",
          "impact": "High", "previous": "2.4%", "consensus": "2.3%", "actual": None,
@@ -120,16 +122,18 @@ def test_build_dashboard_full_shape(tmp_path):
     assert row["chg_1y"] is None          # no history that far back
     assert dash["panels"]["equity"]["updated_at"]  # doc timestamp surfaced
 
-    us, jp = dash["panels"]["bonds"]["rows"]     # doc insertion order preserved
+    us, jp, gb = dash["panels"]["bonds"]["rows"]     # doc insertion order preserved
     assert us["country"] == "US" and us["y10_pct"] == 4.12
-    assert us["y3m_pct"] == 3.89
+    assert us["y3m_pct"] == 3.89 and us["y3m_label"] is None
     assert us["cb_pct"] == 3.75 and us["cb_label"] == "FED"
     assert us["chg_1d_bp"] == -3          # 10Y: 4.12 vs 4.15
     assert us["chg_1w_bp"] == -8          # 10Y: 4.12 vs 4.20 (Jul 1)
     assert jp["country"] == "JP" and jp["y10_pct"] == 4.60
     assert jp["y3m_pct"] is None and jp["cb_pct"] is None   # unsourced cells stay null
     assert jp["chg_1d_bp"] is None        # no yield:JP10Y history seeded
-    assert dash["panels"]["bonds"]["source"] == "bundesbank+fred"
+    assert gb["country"] == "GB" and gb["y3m_pct"] == 4.05 and gb["y3m_label"] == "6M"
+    assert gb["y10_pct"] is None and gb["cb_pct"] is None  # no GB 10Y/CB seeded here
+    assert dash["panels"]["bonds"]["source"] == "bundesbank+fred+boe"
 
     macro = dash["panels"]["macro"]
     assert [r["name"] for r in macro["releases"]] == ["CPI y/y"]  # released events filtered out

@@ -29,6 +29,10 @@ class BondCfg:
     fred: str | None = None
     bundesbank: str | None = None
     ecb: str | None = None
+    boe: str | None = None          # BoE spot-curve tenor label, e.g. "10" (10Y), "0.5" (6M)
+    tenor_label: str | None = None  # display override for the matrix tooltip when `tenor`
+                                     # is a column slot but not the true maturity (GB's 3M
+                                     # cell holds the BoE curve's 6M point: tenor="3M", label="6M")
 
 
 @dataclass(frozen=True)
@@ -59,6 +63,7 @@ class CycleSeriesCfg:
     fred: str | None = None
     dbnomics: str | None = None    # "PROVIDER/dataset/series"
     oecd: str | None = None        # "{flow}/{key}" under the OECD rest/data base
+    eurostat: str | None = None    # "dataset?dim=code&..." selecting exactly one series
     cftc: str | None = None        # CFTC contract market code
     cboe: str | None = None        # exact ratio name in the CBOE daily JSON
     aaii: str | None = None        # "bull_bear_spread"

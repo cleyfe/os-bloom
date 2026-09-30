@@ -48,7 +48,7 @@ def register_jobs(
                    partial(fetch_equity, cfg.indexes, store, get_text)),
         "bonds": (cfg.cadences["bonds"],
                   partial(fetch_bonds, cfg.bonds, cfg.cb_rates, store, get_text,
-                          fred_api_key=fred_api_key)),
+                          fred_api_key=fred_api_key, get_bytes=get_bytes)),
         "macro": (cfg.cadences["macro"],
                   partial(fetch_calendar_if_due, cfg.calendar_url, cfg.calendar_map, store, get_text)),
         "actuals": (cfg.cadences["actuals"],
